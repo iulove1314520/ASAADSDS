@@ -964,6 +964,7 @@ disable_firewall() {
     
     # 检测防火墙类型
     FIREWALL_TYPE=$(detect_firewall)
+    FIREWALL_STATUS=$(get_firewall_status "$FIREWALL_TYPE")
     
     if [ "$FIREWALL_TYPE" == "unknown" ]; then
         echo -e "${RED}错误: 未检测到支持的防火墙程序。${NC}"
@@ -973,30 +974,86 @@ disable_firewall() {
         return
     fi
     
-    # 确认关闭
-    echo -e "${RED}警告: 关闭防火墙可能会使系统面临安全风险。${NC}"
-    echo -e "${YELLOW}建议仅在必要的情况下临时关闭防火墙。${NC}"
-    echo ""
-    read -p "确定要关闭防火墙吗? (y/n): " confirm
+    if [ "$FIREWALL_STATUS" == "inactive" ]; then
+        echo -e "${YELLOW}防火墙 ($FIREWALL_TYPE) 当前已处于关闭状态。${NC}"
+        read -p "按任意键返回..." -n1
+        firewall_menu
+        return
+    fi
     
-    if [[ "$confirm" != "y" ]]; then
-        echo -e "${YELLOW}操作已取消${NC}"
+    # 显示关闭选项
+    echo -e "${RED}┌─────────────────────────────────────────┐${NC}"
+    echo -e "${RED}│         ⚠️ 安全警告 - 请注意 ⚠️         │${NC}"
+    echo -e "${RED}└─────────────────────────────────────────┘${NC}"
+    echo -e "${YELLOW}关闭防火墙将使您的系统直接暴露在互联网上，可能导致以下风险:${NC}"
+    echo -e " - ${RED}未经授权的访问${NC}"
+    echo -e " - ${RED}恶意攻击(如DDoS)${NC}"
+    echo -e " - ${RED}数据泄露或丢失${NC}"
+    echo -e " - ${RED}系统被入侵的风险${NC}"
+    echo ""
+    echo -e "${BLUE}请选择关闭防火墙的方式:${NC}"
+    echo -e "${BLUE}1.${NC} 永久关闭防火墙 ${RED}(不推荐)${NC}"
+    echo -e "${BLUE}2.${NC} 临时关闭防火墙 ${YELLOW}(系统重启后自动恢复)${NC}"
+    echo -e "${BLUE}0.${NC} 取消并返回"
+    echo ""
+    read -p "请选择操作 [0-2]: " disable_choice
+    
+    case $disable_choice in
+        1)
+            permanently_disable_firewall
+            ;;
+        2)
+            temporarily_disable_firewall
+            ;;
+        0|"")
+            echo -e "${GREEN}操作已取消，防火墙保持开启状态${NC}"
+            read -p "按任意键返回..." -n1
+            firewall_menu
+            ;;
+        *)
+            echo -e "${RED}无效选择，请重试${NC}"
+            sleep 1
+            disable_firewall
+            ;;
+    esac
+}
+
+# 永久关闭防火墙
+permanently_disable_firewall() {
+    clear
+    echo -e "${GREEN}=============================${NC}"
+    echo -e "${RED}     永久关闭防火墙     ${NC}"
+    echo -e "${GREEN}=============================${NC}"
+    echo ""
+    
+    # 二次确认
+    echo -e "${RED}⚠️ 警告: 您正在尝试永久关闭防火墙!${NC}"
+    echo -e "${YELLOW}这将禁用系统启动时的防火墙服务，使您的系统持续暴露在安全风险中。${NC}"
+    echo -e "${YELLOW}即使系统重启，防火墙也不会自动启用。${NC}"
+    echo ""
+    echo -e "${RED}请输入 \"我确认关闭防火墙\" 以继续操作:${NC}"
+    read confirm_text
+    
+    if [ "$confirm_text" != "我确认关闭防火墙" ]; then
+        echo -e "${GREEN}操作已取消，防火墙保持开启状态${NC}"
         read -p "按任意键返回..." -n1
         firewall_menu
         return
     fi
     
     echo ""
+    echo -e "${YELLOW}正在永久关闭防火墙...${NC}"
     
     case $FIREWALL_TYPE in
         ufw)
-            echo -e "${YELLOW}正在关闭 UFW 防火墙...${NC}"
             echo -e "${GREEN}执行: sudo ufw disable${NC}"
             echo ""
             sudo ufw disable
+            # 确保开机不启动
+            echo -e "${GREEN}执行: sudo systemctl disable ufw${NC}"
+            sudo systemctl disable ufw
             ;;
         firewalld)
-            echo -e "${YELLOW}正在关闭 FirewallD 防火墙...${NC}"
             echo -e "${GREEN}执行: sudo systemctl stop firewalld${NC}"
             echo ""
             sudo systemctl stop firewalld
@@ -1004,9 +1061,9 @@ disable_firewall() {
             sudo systemctl disable firewalld
             ;;
         iptables)
-            echo -e "${YELLOW}正在清空 IPTables 规则...${NC}"
-            echo -e "${GREEN}执行: sudo iptables -F${NC}"
+            echo -e "${GREEN}正在清空 IPTables 规则...${NC}"
             echo ""
+            echo -e "${GREEN}执行: sudo iptables -F${NC}"
             sudo iptables -F
             echo -e "${GREEN}执行: sudo iptables -X${NC}"
             sudo iptables -X
@@ -1025,7 +1082,13 @@ disable_firewall() {
             echo -e "${GREEN}执行: sudo iptables -P OUTPUT ACCEPT${NC}"
             sudo iptables -P OUTPUT ACCEPT
             
-            # 保存iptables设置（根据不同系统可能有所不同）
+            # 禁用iptables服务（如果存在）
+            if systemctl list-unit-files | grep -q "iptables.service"; then
+                echo -e "${GREEN}执行: sudo systemctl disable iptables${NC}"
+                sudo systemctl disable iptables
+            fi
+            
+            # 保存iptables设置
             if command -v iptables-save &> /dev/null; then
                 echo -e "${GREEN}执行: sudo iptables-save > /etc/iptables/rules.v4${NC}"
                 sudo mkdir -p /etc/iptables
@@ -1034,8 +1097,103 @@ disable_firewall() {
             ;;
     esac
     
+    # 检查操作是否成功
+    FIREWALL_STATUS_AFTER=$(get_firewall_status "$FIREWALL_TYPE")
+    if [ "$FIREWALL_STATUS_AFTER" == "inactive" ]; then
+        echo ""
+        echo -e "${GREEN}✅ 防火墙已成功永久关闭${NC}"
+        echo -e "${YELLOW}注意: 系统将在重启后仍保持防火墙关闭状态${NC}"
+    else
+        echo ""
+        echo -e "${RED}❌ 防火墙关闭操作可能未成功完成${NC}"
+        echo -e "${YELLOW}请检查防火墙状态或手动关闭${NC}"
+    fi
+    
+    read -p "按任意键返回..." -n1
+    firewall_menu
+}
+
+# 临时关闭防火墙
+temporarily_disable_firewall() {
+    clear
+    echo -e "${GREEN}=============================${NC}"
+    echo -e "${YELLOW}     临时关闭防火墙     ${NC}"
+    echo -e "${GREEN}=============================${NC}"
     echo ""
-    echo -e "${GREEN}防火墙已关闭${NC}"
+    
+    echo -e "${YELLOW}临时关闭将仅在当前会话中禁用防火墙${NC}"
+    echo -e "${GREEN}系统重启后，防火墙将自动恢复为启用状态${NC}"
+    echo ""
+    read -p "确定要临时关闭防火墙吗? (y/n): " confirm
+    
+    if [[ "$confirm" != "y" ]]; then
+        echo -e "${GREEN}操作已取消，防火墙保持开启状态${NC}"
+        read -p "按任意键返回..." -n1
+        firewall_menu
+        return
+    fi
+    
+    echo ""
+    echo -e "${YELLOW}正在临时关闭防火墙...${NC}"
+    
+    case $FIREWALL_TYPE in
+        ufw)
+            echo -e "${GREEN}执行: sudo ufw disable${NC}"
+            echo ""
+            sudo ufw disable
+            # 确保开机仍会启动
+            echo -e "${GREEN}执行: sudo systemctl enable ufw${NC}"
+            sudo systemctl enable ufw
+            ;;
+        firewalld)
+            echo -e "${GREEN}执行: sudo systemctl stop firewalld${NC}"
+            echo ""
+            sudo systemctl stop firewalld
+            # 确保开机仍会启动
+            echo -e "${GREEN}执行: sudo systemctl enable firewalld${NC}"
+            sudo systemctl enable firewalld
+            ;;
+        iptables)
+            echo -e "${GREEN}正在临时清空 IPTables 规则...${NC}"
+            echo ""
+            echo -e "${GREEN}执行: sudo iptables -F${NC}"
+            sudo iptables -F
+            echo -e "${GREEN}执行: sudo iptables -X${NC}"
+            sudo iptables -X
+            echo -e "${GREEN}执行: sudo iptables -t nat -F${NC}"
+            sudo iptables -t nat -F
+            echo -e "${GREEN}执行: sudo iptables -t nat -X${NC}"
+            sudo iptables -t nat -X
+            echo -e "${GREEN}执行: sudo iptables -t mangle -F${NC}"
+            sudo iptables -t mangle -F
+            echo -e "${GREEN}执行: sudo iptables -t mangle -X${NC}"
+            sudo iptables -t mangle -X
+            echo -e "${GREEN}执行: sudo iptables -P INPUT ACCEPT${NC}"
+            sudo iptables -P INPUT ACCEPT
+            echo -e "${GREEN}执行: sudo iptables -P FORWARD ACCEPT${NC}"
+            sudo iptables -P FORWARD ACCEPT
+            echo -e "${GREEN}执行: sudo iptables -P OUTPUT ACCEPT${NC}"
+            sudo iptables -P OUTPUT ACCEPT
+            
+            # 确保iptables服务开机仍会启动（如果存在）
+            if systemctl list-unit-files | grep -q "iptables.service"; then
+                echo -e "${GREEN}执行: sudo systemctl enable iptables${NC}"
+                sudo systemctl enable iptables
+            fi
+            ;;
+    esac
+    
+    # 检查操作是否成功
+    FIREWALL_STATUS_AFTER=$(get_firewall_status "$FIREWALL_TYPE")
+    if [ "$FIREWALL_STATUS_AFTER" == "inactive" ]; then
+        echo ""
+        echo -e "${GREEN}✅ 防火墙已成功临时关闭${NC}"
+        echo -e "${YELLOW}重要提示: 系统重启后防火墙将自动重新启用${NC}"
+    else
+        echo ""
+        echo -e "${RED}❌ 防火墙关闭操作可能未成功完成${NC}"
+        echo -e "${YELLOW}请检查防火墙状态或手动关闭${NC}"
+    fi
     
     read -p "按任意键返回..." -n1
     firewall_menu
