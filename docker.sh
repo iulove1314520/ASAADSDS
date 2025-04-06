@@ -2,6 +2,10 @@
 
 # Docker管理脚本
 
+# 脚本版本号
+SCRIPT_VERSION="1.0.0"
+SCRIPT_UPDATE_URL="https://raw.githubusercontent.com/iulove1314520/ASAADSDS/refs/heads/main/docker.sh"
+
 # 设置终端颜色
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
@@ -1523,21 +1527,184 @@ EOF
     common_projects_menu
 }
 
+# 更新脚本
+update_script() {
+    clear
+    echo -e "${GREEN}=============================${NC}"
+    echo -e "${GREEN}      更新 Docker 管理工具      ${NC}"
+    echo -e "${GREEN}=============================${NC}"
+    echo ""
+    echo -e "${YELLOW}当前版本: ${SCRIPT_VERSION}${NC}"
+    echo -e "${YELLOW}正在检查更新...${NC}"
+    
+    # 创建临时文件
+    TMP_FILE=$(mktemp)
+    
+    # 下载新脚本
+    if curl -s "$SCRIPT_UPDATE_URL" -o "$TMP_FILE"; then
+        # 检查下载的脚本是否包含版本号
+        NEW_VERSION=$(grep "SCRIPT_VERSION=" "$TMP_FILE" | head -n 1 | cut -d'"' -f2)
+        
+        if [ -z "$NEW_VERSION" ]; then
+            echo -e "${RED}错误: 无法获取新版本信息。${NC}"
+            rm -f "$TMP_FILE"
+            read -p "按任意键返回..." -n1
+            show_main_menu
+            return
+        fi
+        
+        echo -e "${GREEN}发现新版本: ${NEW_VERSION}${NC}"
+        
+        # 比较版本号
+        if [ "$SCRIPT_VERSION" = "$NEW_VERSION" ]; then
+            echo -e "${GREEN}您已经使用最新版本!${NC}"
+            rm -f "$TMP_FILE"
+            read -p "按任意键返回..." -n1
+            show_main_menu
+            return
+        fi
+        
+        # 确认更新
+        read -p "是否更新到新版本? (y/n): " confirm
+        if [ "$confirm" != "y" ]; then
+            echo -e "${YELLOW}更新已取消${NC}"
+            rm -f "$TMP_FILE"
+            read -p "按任意键返回..." -n1
+            show_main_menu
+            return
+        fi
+        
+        # 备份当前脚本
+        BACKUP_FILE="docker.sh.bak.$(date +%Y%m%d%H%M%S)"
+        cp "$(readlink -f "$0")" "$BACKUP_FILE"
+        
+        if [ $? -ne 0 ]; then
+            echo -e "${RED}错误: 无法创建备份文件。${NC}"
+            rm -f "$TMP_FILE"
+            read -p "按任意键返回..." -n1
+            show_main_menu
+            return
+        fi
+        
+        echo -e "${GREEN}已创建备份文件: ${BACKUP_FILE}${NC}"
+        
+        # 替换当前脚本
+        cat "$TMP_FILE" > "$(readlink -f "$0")"
+        
+        if [ $? -ne 0 ]; then
+            echo -e "${RED}错误: 无法更新脚本。尝试使用sudo权限。${NC}"
+            sudo cat "$TMP_FILE" > "$(readlink -f "$0")"
+            
+            if [ $? -ne 0 ]; then
+                echo -e "${RED}更新失败，将恢复备份。${NC}"
+                cp "$BACKUP_FILE" "$(readlink -f "$0")"
+                rm -f "$TMP_FILE"
+                read -p "按任意键返回..." -n1
+                show_main_menu
+                return
+            fi
+        fi
+        
+        # 设置执行权限
+        chmod +x "$(readlink -f "$0")"
+        
+        echo -e "${GREEN}脚本已更新到版本 ${NEW_VERSION}!${NC}"
+        echo -e "${YELLOW}请重新启动脚本以应用更改。${NC}"
+        
+        # 清理临时文件
+        rm -f "$TMP_FILE"
+        
+        # 询问用户是否立即重启脚本
+        read -p "是否立即重启脚本? (y/n): " restart
+        if [ "$restart" = "y" ]; then
+            exec "$(readlink -f "$0")"
+            exit 0
+        else
+            read -p "按任意键退出..." -n1
+            exit 0
+        fi
+    else
+        echo -e "${RED}错误: 无法连接到更新服务器。${NC}"
+        rm -f "$TMP_FILE"
+        read -p "按任意键返回..." -n1
+        show_main_menu
+    fi
+}
+
+# 删除脚本
+delete_script() {
+    clear
+    echo -e "${GREEN}=============================${NC}"
+    echo -e "${RED}      删除 Docker 管理工具      ${NC}"
+    echo -e "${GREEN}=============================${NC}"
+    echo ""
+    echo -e "${RED}警告: 此操作将永久删除此脚本文件!${NC}"
+    echo -e "${YELLOW}脚本路径: $(readlink -f "$0")${NC}"
+    echo ""
+    
+    # 确认删除
+    read -p "确定要删除此脚本吗? 此操作不可恢复! (yes/no): " confirm
+    if [ "$confirm" != "yes" ]; then
+        echo -e "${YELLOW}删除操作已取消${NC}"
+        read -p "按任意键返回..." -n1
+        show_main_menu
+        return
+    fi
+    
+    # 再次确认
+    read -p "再次确认: 您确定要删除此脚本吗? (yes/no): " confirm2
+    if [ "$confirm2" != "yes" ]; then
+        echo -e "${YELLOW}删除操作已取消${NC}"
+        read -p "按任意键返回..." -n1
+        show_main_menu
+        return
+    fi
+    
+    # 删除脚本
+    echo -e "${YELLOW}正在删除脚本...${NC}"
+    rm -f "$(readlink -f "$0")"
+    
+    if [ $? -eq 0 ]; then
+        echo -e "${GREEN}脚本已成功删除!${NC}"
+        echo -e "${YELLOW}感谢您使用 Docker 管理工具，再见!${NC}"
+        sleep 2
+        exit 0
+    else
+        echo -e "${RED}删除失败，尝试使用sudo权限...${NC}"
+        sudo rm -f "$(readlink -f "$0")"
+        
+        if [ $? -eq 0 ]; then
+            echo -e "${GREEN}脚本已成功删除!${NC}"
+            echo -e "${YELLOW}感谢您使用 Docker 管理工具，再见!${NC}"
+            sleep 2
+            exit 0
+        else
+            echo -e "${RED}删除失败，请手动删除脚本。${NC}"
+            echo -e "${YELLOW}脚本路径: $(readlink -f "$0")${NC}"
+            read -p "按任意键返回..." -n1
+            show_main_menu
+        fi
+    fi
+}
+
 # 显示主菜单
 show_main_menu() {
     clear
     echo -e "${GREEN}=============================${NC}"
     echo -e "${GREEN}      Docker 管理工具       ${NC}"
     echo -e "${GREEN}=============================${NC}"
+    echo -e "${YELLOW}      版本: ${SCRIPT_VERSION}      ${NC}"
     echo ""
     echo -e "${BLUE}1.${NC} Docker-Compose 管理"
     echo -e "${BLUE}2.${NC} Docker 容器管理"
     echo -e "${BLUE}3.${NC} 常见项目安装"
+    echo -e "${BLUE}4.${NC} 更新脚本"
+    echo -e "${BLUE}5.${NC} 删除脚本"
     echo -e "${BLUE}0.${NC} 退出"
     echo ""
     echo -e "${GREEN}=============================${NC}"
     echo ""
-    read -p "请选择操作 [0-3]: " choice
+    read -p "请选择操作 [0-5]: " choice
 
     case $choice in
         1)
@@ -1548,6 +1715,12 @@ show_main_menu() {
             ;;
         3)
             common_projects_menu
+            ;;
+        4)
+            update_script
+            ;;
+        5)
+            delete_script
             ;;
         0)
             echo "谢谢使用，再见！"
