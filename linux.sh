@@ -646,7 +646,9 @@ update_script() {
     echo -e "${GREEN}=============================${NC}"
     echo ""
     
-    echo -e "${YELLOW}当前版本: ${SCRIPT_VERSION}${NC}"
+    # 重新获取当前版本号，确保显示正确
+    CUR_VERSION=$(grep "SCRIPT_VERSION=" "$(readlink -f "$0")" | head -n 1 | cut -d'"' -f2)
+    echo -e "${YELLOW}当前版本: ${CUR_VERSION}${NC}"
     echo -e "${YELLOW}正在检查更新...${NC}"
     echo ""
     
@@ -697,9 +699,9 @@ update_script() {
     
     # 比较版本号 (使用更可靠的比较方法)
     # 将版本号拆分为主要部分并比较
-    local CURRENT_MAJOR=$(echo "$SCRIPT_VERSION" | cut -d. -f1)
-    local CURRENT_MINOR=$(echo "$SCRIPT_VERSION" | cut -d. -f2)
-    local CURRENT_PATCH=$(echo "$SCRIPT_VERSION" | cut -d. -f3)
+    local CURRENT_MAJOR=$(echo "$CUR_VERSION" | cut -d. -f1)
+    local CURRENT_MINOR=$(echo "$CUR_VERSION" | cut -d. -f2)
+    local CURRENT_PATCH=$(echo "$CUR_VERSION" | cut -d. -f3)
     
     local NEW_MAJOR=$(echo "$NEW_VERSION" | cut -d. -f1)
     local NEW_MINOR=$(echo "$NEW_VERSION" | cut -d. -f2)
@@ -726,7 +728,7 @@ update_script() {
     
     # 询问是否更新
     echo -e "${YELLOW}发现新版本!${NC}"
-    echo -e "${GREEN}版本 ${SCRIPT_VERSION} -> 版本 ${NEW_VERSION}${NC}"
+    echo -e "${GREEN}版本 ${CUR_VERSION} -> 版本 ${NEW_VERSION}${NC}"
     echo ""
     echo -e "${BLUE}更新可能包含新功能、性能优化和错误修复。${NC}"
     read -p "是否更新到新版本? (y/n): " update_choice
