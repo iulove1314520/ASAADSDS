@@ -3,7 +3,7 @@
 # Docker管理脚本
 
 # 脚本版本号
-SCRIPT_VERSION="1.0.0"
+SCRIPT_VERSION="1.1.0"
 SCRIPT_UPDATE_URL="https://raw.githubusercontent.com/iulove1314520/ASAADSDS/refs/heads/main/docker.sh"
 
 # 设置终端颜色
@@ -12,6 +12,30 @@ BLUE='\033[0;34m'
 YELLOW='\033[0;33m'
 RED='\033[0;31m'
 NC='\033[0m' # 恢复默认颜色
+
+# 确保脚本能从任何位置运行
+ensure_script_location() {
+    # 获取脚本的绝对路径
+    SCRIPT_PATH=$(readlink -f "$0")
+    # 获取脚本所在目录
+    SCRIPT_DIR=$(dirname "$SCRIPT_PATH")
+    
+    # 如果当前目录不是脚本所在目录，则切换
+    if [ "$PWD" != "$SCRIPT_DIR" ]; then
+        echo -e "${YELLOW}切换到脚本所在目录: ${SCRIPT_DIR}${NC}"
+        cd "$SCRIPT_DIR"
+        
+        # 检查是否成功切换目录
+        if [ $? -ne 0 ]; then
+            echo -e "${RED}错误: 无法切换到脚本目录 ${SCRIPT_DIR}${NC}"
+            echo -e "${YELLOW}脚本可能无法正常工作...${NC}"
+            sleep 2
+        else
+            echo -e "${GREEN}已切换到: $(pwd)${NC}"
+            sleep 1
+        fi
+    fi
+}
 
 # Docker-Compose管理菜单
 docker_compose_menu() {
@@ -203,11 +227,12 @@ docker_container_menu() {
     echo -e "${BLUE}5.${NC} 进入容器内部"
     echo -e "${BLUE}6.${NC} 容器启动/停止管理"
     echo -e "${BLUE}7.${NC} 删除容器"
+    echo -e "${BLUE}8.${NC} 查看并保存容器日志"
     echo -e "${BLUE}0.${NC} 返回主菜单"
     echo ""
     echo -e "${GREEN}=============================${NC}"
     echo ""
-    read -p "请选择操作 [0-7]: " choice
+    read -p "请选择操作 [0-8]: " choice
 
     case $choice in
         1)
@@ -230,6 +255,9 @@ docker_container_menu() {
             ;;
         7)
             remove_container
+            ;;
+        8)
+            view_container_logs
             ;;
         0)
             show_main_menu
@@ -946,6 +974,646 @@ remove_container() {
     echo -e "${GREEN}删除操作已完成${NC}"
     read -p "按任意键返回..." -n1
     remove_container
+}
+
+# 查看并保存容器日志
+view_container_logs() {
+    clear
+    echo -e "${GREEN}容器日志管理${NC}"
+    echo -e "${GREEN}=============================${NC}"
+    echo ""
+    echo -e "${BLUE}1.${NC} 单个容器日志保存"
+    echo -e "${BLUE}2.${NC} 批量容器日志导出"
+    echo -e "${BLUE}3.${NC} 日志切割功能"
+    echo -e "${BLUE}0.${NC} 返回上级菜单"
+    echo ""
+    echo -e "${GREEN}=============================${NC}"
+    echo ""
+    read -p "请选择操作 [0-3]: " choice
+
+    case $choice in
+        1)
+            save_single_container_log
+            ;;
+        2)
+            batch_export_container_logs
+            ;;
+        3)
+            split_container_logs
+            ;;
+        0)
+            docker_container_menu
+            ;;
+        *)
+            echo -e "${RED}无效选择，请重试${NC}"
+            sleep 1
+            view_container_logs
+            ;;
+    esac
+}
+
+# 保存单个容器日志
+save_single_container_log() {
+    clear
+    echo -e "${GREEN}单个容器日志保存${NC}"
+    echo -e "${GREEN}=============================${NC}"
+    
+    # 检查Docker是否已安装
+    if ! command -v docker &> /dev/null; then
+        echo -e "${RED}错误: Docker未安装。${NC}"
+        read -p "按任意键返回..." -n1
+        view_container_logs
+        return
+    fi
+    
+    # 获取所有容器（包括已停止的）
+    echo -e "${YELLOW}获取所有容器...${NC}"
+    
+    # 检查是否有容器
+    if [ -z "$(docker ps -a -q)" ]; then
+        echo -e "${RED}错误: 没有找到任何Docker容器。${NC}"
+        read -p "按任意键返回..." -n1
+        view_container_logs
+        return
+    fi
+    
+    # 使用数组存储容器信息
+    container_ids=()
+    container_names=()
+    
+    # 显示容器列表（格式化输出）
+    echo -e "\n${GREEN}容器列表:${NC}"
+    echo -e "${GREEN}=============================${NC}"
+    echo -e "序号\t状态\t\t容器ID\t\t\t镜像\t\t\t名称"
+    echo -e "${GREEN}=============================${NC}"
+    
+    # 获取容器信息并显示
+    count=1
+    while read -r line; do
+        container_id=$(echo "$line" | awk '{print $1}')
+        container_ids+=("$container_id")
+        
+        container_image=$(echo "$line" | awk '{print $2}')
+        container_name=$(echo "$line" | awk '{print $NF}')
+        container_names+=("$container_name")
+        container_status=$(echo "$line" | awk '{print $3}')
+        
+        # 根据状态使用不同颜色
+        if [[ "$container_status" == "Up"* ]]; then
+            status_color="${GREEN}"
+        else
+            status_color="${RED}"
+        fi
+        
+        echo -e "${BLUE}$count)${NC}\t${status_color}$container_status${NC}\t$container_id\t$container_image\t$container_name"
+        ((count++))
+    done < <(docker ps -a --format "{{.ID}} {{.Image}} {{.Status}} {{.Names}}")
+    
+    echo -e "${GREEN}=============================${NC}"
+    
+    # 让用户选择要查看日志的容器
+    echo ""
+    read -p "请选择要查看日志的容器序号 [1-$((count-1))], 或输入 'q' 返回: " choice
+    
+    # 处理用户选择
+    if [[ "$choice" == "q" ]]; then
+        view_container_logs
+        return
+    fi
+    
+    # 验证输入是否是数字
+    if ! [[ "$choice" =~ ^[0-9]+$ ]]; then
+        echo -e "${RED}错误: 无效输入，请输入数字。${NC}"
+        read -p "按任意键继续..." -n1
+        save_single_container_log
+        return
+    fi
+    
+    # 检查输入数字是否有效
+    if [ "$choice" -lt 1 ] || [ "$choice" -gt $((count-1)) ]; then
+        echo -e "${RED}错误: 无效的容器序号。${NC}"
+        read -p "按任意键继续..." -n1
+        save_single_container_log
+        return
+    fi
+    
+    # 获取选中的容器ID和名称
+    selected_container=${container_ids[$((choice-1))]}
+    selected_container_name=${container_names[$((choice-1))]}
+    
+    # 生成北京时间格式
+    current_time=$(TZ='Asia/Shanghai' date +"%Y%m%d_%H%M%S")
+    
+    # 创建日志保存目录
+    log_dir="/root/dockerlog/${selected_container_name}_${current_time}"
+    mkdir -p "$log_dir"
+    
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}错误: 无法创建日志目录 ${log_dir}${NC}"
+        echo -e "${YELLOW}尝试使用sudo权限...${NC}"
+        sudo mkdir -p "$log_dir"
+        
+        if [ $? -ne 0 ]; then
+            echo -e "${RED}错误: 创建目录失败，请检查权限。${NC}"
+            read -p "按任意键返回..." -n1
+            save_single_container_log
+            return
+        fi
+    fi
+    
+    # 获取容器日志并保存
+    echo -e "${YELLOW}正在获取容器 ${selected_container_name} 的日志...${NC}"
+    log_file="${log_dir}/container_log.txt"
+    
+    docker logs $selected_container > "$log_file" 2>&1
+    
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}获取日志失败，尝试使用sudo权限...${NC}"
+        sudo docker logs $selected_container > "$log_file" 2>&1
+        
+        if [ $? -ne 0 ]; then
+            echo -e "${RED}错误: 无法获取容器日志。${NC}"
+            read -p "按任意键返回..." -n1
+            save_single_container_log
+            return
+        fi
+    fi
+    
+    # 显示日志保存成功信息
+    echo -e "${GREEN}容器日志已保存到: ${log_file}${NC}"
+    
+    # 询问是否查看日志
+    read -p "是否立即查看日志? (y/n): " view_log
+    if [[ "$view_log" == "y" ]]; then
+        if command -v less &> /dev/null; then
+            less "$log_file"
+        else
+            more "$log_file"
+        fi
+    fi
+    
+    read -p "按任意键返回..." -n1
+    view_container_logs
+}
+
+# 批量导出容器日志
+batch_export_container_logs() {
+    clear
+    echo -e "${GREEN}批量容器日志导出${NC}"
+    echo -e "${GREEN}=============================${NC}"
+    
+    # 检查Docker是否已安装
+    if ! command -v docker &> /dev/null; then
+        echo -e "${RED}错误: Docker未安装。${NC}"
+        read -p "按任意键返回..." -n1
+        view_container_logs
+        return
+    fi
+    
+    # 获取所有容器（包括已停止的）
+    echo -e "${YELLOW}获取所有容器...${NC}"
+    
+    # 检查是否有容器
+    if [ -z "$(docker ps -a -q)" ]; then
+        echo -e "${RED}错误: 没有找到任何Docker容器。${NC}"
+        read -p "按任意键返回..." -n1
+        view_container_logs
+        return
+    fi
+    
+    # 使用数组存储容器信息
+    container_ids=()
+    container_names=()
+    container_statuses=()
+    
+    # 显示容器列表（格式化输出）
+    echo -e "\n${GREEN}容器列表:${NC}"
+    echo -e "${GREEN}=============================${NC}"
+    echo -e "序号\t状态\t\t容器ID\t\t\t镜像\t\t\t名称"
+    echo -e "${GREEN}=============================${NC}"
+    
+    # 获取容器信息并显示
+    count=1
+    while read -r line; do
+        container_id=$(echo "$line" | awk '{print $1}')
+        container_ids+=("$container_id")
+        
+        container_image=$(echo "$line" | awk '{print $2}')
+        container_name=$(echo "$line" | awk '{print $NF}')
+        container_names+=("$container_name")
+        
+        container_status=$(echo "$line" | awk '{print $3}')
+        container_statuses+=("$container_status")
+        
+        # 根据状态使用不同颜色
+        if [[ "$container_status" == "Up"* ]]; then
+            status_color="${GREEN}"
+        else
+            status_color="${RED}"
+        fi
+        
+        echo -e "${BLUE}$count)${NC}\t${status_color}$container_status${NC}\t$container_id\t$container_image\t$container_name"
+        ((count++))
+    done < <(docker ps -a --format "{{.ID}} {{.Image}} {{.Status}} {{.Names}}")
+    
+    echo -e "${GREEN}=============================${NC}"
+    echo -e "${YELLOW}提示: 您可以选择多个容器 (例如: 1 3 5)${NC}"
+    echo ""
+    
+    # 让用户选择要导出日志的容器
+    read -p "请选择要导出日志的容器序号 [1-$((count-1))], 使用空格分隔，或输入 'a' 导出所有容器日志，或输入 'q' 返回: " choice
+    
+    # 处理用户选择
+    if [[ "$choice" == "q" ]]; then
+        view_container_logs
+        return
+    fi
+    
+    # 定义要导出日志的容器ID和名称数组
+    export_container_ids=()
+    export_container_names=()
+    
+    # 处理选择'a'的情况 - 导出所有容器
+    if [[ "$choice" == "a" ]]; then
+        echo -e "${YELLOW}将导出所有容器的日志...${NC}"
+        export_container_ids=("${container_ids[@]}")
+        export_container_names=("${container_names[@]}")
+    else
+        # 解析用户输入的序号
+        for num in $choice; do
+            # 验证输入是否是数字
+            if ! [[ "$num" =~ ^[0-9]+$ ]]; then
+                echo -e "${RED}错误: '$num' 不是有效的数字。${NC}"
+                read -p "按任意键继续..." -n1
+                batch_export_container_logs
+                return
+            fi
+            
+            # 检查输入数字是否有效
+            if [ "$num" -lt 1 ] || [ "$num" -gt $((count-1)) ]; then
+                echo -e "${RED}错误: '$num' 不是有效的容器序号。${NC}"
+                read -p "按任意键继续..." -n1
+                batch_export_container_logs
+                return
+            fi
+            
+            # 添加到导出列表
+            container_idx=$((num-1))
+            export_container_ids+=("${container_ids[$container_idx]}")
+            export_container_names+=("${container_names[$container_idx]}")
+        done
+    fi
+    
+    # 检查是否有选择容器
+    if [ ${#export_container_ids[@]} -eq 0 ]; then
+        echo -e "${RED}错误: 未选择任何容器。${NC}"
+        read -p "按任意键返回..." -n1
+        batch_export_container_logs
+        return
+    fi
+    
+    # 生成北京时间格式
+    current_time=$(TZ='Asia/Shanghai' date +"%Y%m%d_%H%M%S")
+    
+    # 创建主日志目录
+    main_log_dir="/root/dockerlog/batch_export_${current_time}"
+    mkdir -p "$main_log_dir"
+    
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}错误: 无法创建主日志目录 ${main_log_dir}${NC}"
+        echo -e "${YELLOW}尝试使用sudo权限...${NC}"
+        sudo mkdir -p "$main_log_dir"
+        
+        if [ $? -ne 0 ]; then
+            echo -e "${RED}错误: 创建目录失败，请检查权限。${NC}"
+            read -p "按任意键返回..." -n1
+            batch_export_container_logs
+            return
+        fi
+    fi
+    
+    # 显示导出进度信息
+    echo -e "\n${GREEN}开始批量导出容器日志:${NC}"
+    echo -e "${GREEN}=============================${NC}"
+    
+    # 循环导出每个容器的日志
+    for i in "${!export_container_ids[@]}"; do
+        container_id="${export_container_ids[$i]}"
+        container_name="${export_container_names[$i]}"
+        
+        # 显示当前进度
+        echo -e "${YELLOW}[$((i+1))/${#export_container_ids[@]}] 正在导出容器 ${container_name} 的日志...${NC}"
+        
+        # 为每个容器创建单独的日志目录
+        container_log_dir="${main_log_dir}/${container_name}_${current_time}"
+        mkdir -p "$container_log_dir"
+        
+        # 导出日志
+        log_file="${container_log_dir}/container_log.txt"
+        docker logs $container_id > "$log_file" 2>&1
+        
+        if [ $? -ne 0 ]; then
+            echo -e "${RED}获取日志失败，尝试使用sudo权限...${NC}"
+            sudo docker logs $container_id > "$log_file" 2>&1
+            
+            if [ $? -ne 0 ]; then
+                echo -e "${RED}错误: 无法获取容器 ${container_name} 的日志。${NC}"
+                continue
+            fi
+        fi
+        
+        echo -e "${GREEN}✓ 容器 ${container_name} 的日志已保存到: ${log_file}${NC}"
+    done
+    
+    # 显示导出完成信息
+    echo -e "\n${GREEN}批量导出完成!${NC}"
+    echo -e "${GREEN}所有日志已保存到目录: ${main_log_dir}${NC}"
+    
+    read -p "按任意键返回..." -n1
+    view_container_logs
+}
+
+# 日志切割功能
+split_container_logs() {
+    clear
+    echo -e "${GREEN}日志切割功能${NC}"
+    echo -e "${GREEN}=============================${NC}"
+    
+    # 检查Docker是否已安装
+    if ! command -v docker &> /dev/null; then
+        echo -e "${RED}错误: Docker未安装。${NC}"
+        read -p "按任意键返回..." -n1
+        view_container_logs
+        return
+    fi
+    
+    # 获取所有容器（包括已停止的）
+    echo -e "${YELLOW}获取所有容器...${NC}"
+    
+    # 检查是否有容器
+    if [ -z "$(docker ps -a -q)" ]; then
+        echo -e "${RED}错误: 没有找到任何Docker容器。${NC}"
+        read -p "按任意键返回..." -n1
+        view_container_logs
+        return
+    fi
+    
+    # 使用数组存储容器信息
+    container_ids=()
+    container_names=()
+    
+    # 显示容器列表（格式化输出）
+    echo -e "\n${GREEN}容器列表:${NC}"
+    echo -e "${GREEN}=============================${NC}"
+    echo -e "序号\t状态\t\t容器ID\t\t\t镜像\t\t\t名称"
+    echo -e "${GREEN}=============================${NC}"
+    
+    # 获取容器信息并显示
+    count=1
+    while read -r line; do
+        container_id=$(echo "$line" | awk '{print $1}')
+        container_ids+=("$container_id")
+        
+        container_image=$(echo "$line" | awk '{print $2}')
+        container_name=$(echo "$line" | awk '{print $NF}')
+        container_names+=("$container_name")
+        container_status=$(echo "$line" | awk '{print $3}')
+        
+        # 根据状态使用不同颜色
+        if [[ "$container_status" == "Up"* ]]; then
+            status_color="${GREEN}"
+        else
+            status_color="${RED}"
+        fi
+        
+        echo -e "${BLUE}$count)${NC}\t${status_color}$container_status${NC}\t$container_id\t$container_image\t$container_name"
+        ((count++))
+    done < <(docker ps -a --format "{{.ID}} {{.Image}} {{.Status}} {{.Names}}")
+    
+    echo -e "${GREEN}=============================${NC}"
+    
+    # 让用户选择要查看日志的容器
+    echo ""
+    read -p "请选择要查看日志的容器序号 [1-$((count-1))], 或输入 'q' 返回: " choice
+    
+    # 处理用户选择
+    if [[ "$choice" == "q" ]]; then
+        view_container_logs
+        return
+    fi
+    
+    # 验证输入是否是数字
+    if ! [[ "$choice" =~ ^[0-9]+$ ]]; then
+        echo -e "${RED}错误: 无效输入，请输入数字。${NC}"
+        read -p "按任意键继续..." -n1
+        split_container_logs
+        return
+    fi
+    
+    # 检查输入数字是否有效
+    if [ "$choice" -lt 1 ] || [ "$choice" -gt $((count-1)) ]; then
+        echo -e "${RED}错误: 无效的容器序号。${NC}"
+        read -p "按任意键继续..." -n1
+        split_container_logs
+        return
+    fi
+    
+    # 获取选中的容器ID和名称
+    selected_container=${container_ids[$((choice-1))]}
+    selected_container_name=${container_names[$((choice-1))]}
+    
+    # 切割选项菜单
+    clear
+    echo -e "${GREEN}日志切割选项 - 容器: ${selected_container_name}${NC}"
+    echo -e "${GREEN}=============================${NC}"
+    echo -e "${BLUE}1.${NC} 按行数切割"
+    echo -e "${BLUE}2.${NC} 按大小切割"
+    echo -e "${BLUE}0.${NC} 返回上级菜单"
+    echo ""
+    echo -e "${GREEN}=============================${NC}"
+    echo ""
+    
+    read -p "请选择切割方式 [0-2]: " split_choice
+    
+    case $split_choice in
+        1)
+            # 按行数切割
+            echo ""
+            read -p "请输入每个文件的行数 [1000]: " lines_per_file
+            lines_per_file=${lines_per_file:-1000}
+            
+            # 验证输入是否是数字
+            if ! [[ "$lines_per_file" =~ ^[0-9]+$ ]]; then
+                echo -e "${RED}错误: 无效输入，请输入数字。${NC}"
+                read -p "按任意键继续..." -n1
+                split_container_logs
+                return
+            fi
+            
+            # 生成北京时间格式
+            current_time=$(TZ='Asia/Shanghai' date +"%Y%m%d_%H%M%S")
+            
+            # 创建日志保存目录
+            log_dir="/root/dockerlog/${selected_container_name}_split_${current_time}"
+            mkdir -p "$log_dir"
+            
+            if [ $? -ne 0 ]; then
+                echo -e "${RED}错误: 无法创建日志目录 ${log_dir}${NC}"
+                echo -e "${YELLOW}尝试使用sudo权限...${NC}"
+                sudo mkdir -p "$log_dir"
+                
+                if [ $? -ne 0 ]; then
+                    echo -e "${RED}错误: 创建目录失败，请检查权限。${NC}"
+                    read -p "按任意键返回..." -n1
+                    split_container_logs
+                    return
+                fi
+            fi
+            
+            # 获取容器日志并保存到临时文件
+            echo -e "${YELLOW}正在获取容器 ${selected_container_name} 的日志...${NC}"
+            temp_log_file="${log_dir}/temp_container_log.txt"
+            
+            docker logs $selected_container > "$temp_log_file" 2>&1
+            
+            if [ $? -ne 0 ]; then
+                echo -e "${RED}获取日志失败，尝试使用sudo权限...${NC}"
+                sudo docker logs $selected_container > "$temp_log_file" 2>&1
+                
+                if [ $? -ne 0 ]; then
+                    echo -e "${RED}错误: 无法获取容器日志。${NC}"
+                    read -p "按任意键返回..." -n1
+                    split_container_logs
+                    return
+                fi
+            fi
+            
+            # 使用split命令按行数切割日志文件
+            echo -e "${YELLOW}正在按每个文件 ${lines_per_file} 行进行切割...${NC}"
+            cd "$log_dir"
+            split -l "$lines_per_file" "$temp_log_file" "${selected_container_name}_part_"
+            
+            if [ $? -ne 0 ]; then
+                echo -e "${RED}切割失败，尝试使用sudo权限...${NC}"
+                sudo split -l "$lines_per_file" "$temp_log_file" "${selected_container_name}_part_"
+                
+                if [ $? -ne 0 ]; then
+                    echo -e "${RED}错误: 无法切割日志文件。${NC}"
+                    read -p "按任意键返回..." -n1
+                    split_container_logs
+                    return
+                fi
+            fi
+            
+            # 删除临时文件
+            rm -f "$temp_log_file"
+            
+            # 统计切割后的文件数量
+            file_count=$(ls -1 "${selected_container_name}_part_"* | wc -l)
+            
+            # 显示切割成功信息
+            echo -e "${GREEN}日志切割完成!${NC}"
+            echo -e "${GREEN}已将日志切割为 ${file_count} 个文件，每个文件最多 ${lines_per_file} 行${NC}"
+            echo -e "${GREEN}日志文件保存在: ${log_dir}${NC}"
+            ;;
+            
+        2)
+            # 按大小切割
+            echo ""
+            read -p "请输入每个文件的大小 (例如: 1M, 500K) [1M]: " file_size
+            file_size=${file_size:-1M}
+            
+            # 简单验证输入格式
+            if ! [[ "$file_size" =~ ^[0-9]+[KMG]$ ]]; then
+                echo -e "${RED}错误: 无效的大小格式。请使用如 1M, 500K 的格式。${NC}"
+                read -p "按任意键继续..." -n1
+                split_container_logs
+                return
+            fi
+            
+            # 生成北京时间格式
+            current_time=$(TZ='Asia/Shanghai' date +"%Y%m%d_%H%M%S")
+            
+            # 创建日志保存目录
+            log_dir="/root/dockerlog/${selected_container_name}_split_${current_time}"
+            mkdir -p "$log_dir"
+            
+            if [ $? -ne 0 ]; then
+                echo -e "${RED}错误: 无法创建日志目录 ${log_dir}${NC}"
+                echo -e "${YELLOW}尝试使用sudo权限...${NC}"
+                sudo mkdir -p "$log_dir"
+                
+                if [ $? -ne 0 ]; then
+                    echo -e "${RED}错误: 创建目录失败，请检查权限。${NC}"
+                    read -p "按任意键返回..." -n1
+                    split_container_logs
+                    return
+                fi
+            fi
+            
+            # 获取容器日志并保存到临时文件
+            echo -e "${YELLOW}正在获取容器 ${selected_container_name} 的日志...${NC}"
+            temp_log_file="${log_dir}/temp_container_log.txt"
+            
+            docker logs $selected_container > "$temp_log_file" 2>&1
+            
+            if [ $? -ne 0 ]; then
+                echo -e "${RED}获取日志失败，尝试使用sudo权限...${NC}"
+                sudo docker logs $selected_container > "$temp_log_file" 2>&1
+                
+                if [ $? -ne 0 ]; then
+                    echo -e "${RED}错误: 无法获取容器日志。${NC}"
+                    read -p "按任意键返回..." -n1
+                    split_container_logs
+                    return
+                fi
+            fi
+            
+            # 使用split命令按大小切割日志文件
+            echo -e "${YELLOW}正在按每个文件 ${file_size} 大小进行切割...${NC}"
+            cd "$log_dir"
+            split -b "$file_size" "$temp_log_file" "${selected_container_name}_part_"
+            
+            if [ $? -ne 0 ]; then
+                echo -e "${RED}切割失败，尝试使用sudo权限...${NC}"
+                sudo split -b "$file_size" "$temp_log_file" "${selected_container_name}_part_"
+                
+                if [ $? -ne 0 ]; then
+                    echo -e "${RED}错误: 无法切割日志文件。${NC}"
+                    read -p "按任意键返回..." -n1
+                    split_container_logs
+                    return
+                fi
+            fi
+            
+            # 删除临时文件
+            rm -f "$temp_log_file"
+            
+            # 统计切割后的文件数量
+            file_count=$(ls -1 "${selected_container_name}_part_"* | wc -l)
+            
+            # 显示切割成功信息
+            echo -e "${GREEN}日志切割完成!${NC}"
+            echo -e "${GREEN}已将日志切割为 ${file_count} 个文件，每个文件最大 ${file_size}${NC}"
+            echo -e "${GREEN}日志文件保存在: ${log_dir}${NC}"
+            ;;
+            
+        0)
+            # 返回上级菜单
+            split_container_logs
+            return
+            ;;
+            
+        *)
+            echo -e "${RED}无效选择，请重试${NC}"
+            sleep 1
+            split_container_logs
+            return
+            ;;
+    esac
+    
+    read -p "按任意键返回..." -n1
+    view_container_logs
 }
 
 # 常见项目安装菜单
@@ -1734,5 +2402,14 @@ show_main_menu() {
     esac
 }
 
-# 启动脚本
-show_main_menu
+# 主程序入口点
+main() {
+    # 确保脚本从正确的目录运行
+    ensure_script_location
+    
+    # 显示主菜单
+    show_main_menu
+}
+
+# 执行主程序
+main
