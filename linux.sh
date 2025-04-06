@@ -3,7 +3,8 @@
 # Linux系统管理脚本
 
 # 脚本版本号
-SCRIPT_VERSION="1.0.0"
+SCRIPT_VERSION="1.2.0"
+SCRIPT_UPDATE_URL="https://raw.githubusercontent.com/iulove1314520/ASAADSDS/refs/heads/main/linux.sh"
 
 # 设置终端颜色
 GREEN='\033[0;32m'
@@ -225,15 +226,23 @@ show_main_menu() {
     echo -e "${YELLOW}      版本: ${SCRIPT_VERSION}      ${NC}"
     echo ""
     echo -e "${BLUE}1.${NC} 查看系统详细信息"
+    echo -e "${BLUE}2.${NC} 软件源管理"
+    echo -e "${BLUE}3.${NC} 检查脚本更新"
     echo -e "${BLUE}0.${NC} 退出"
     echo ""
     echo -e "${GREEN}=============================${NC}"
     echo ""
-    read -p "请选择操作 [0-1]: " choice
+    read -p "请选择操作 [0-3]: " choice
 
     case $choice in
         1)
             show_system_info
+            ;;
+        2)
+            package_manager_menu
+            ;;
+        3)
+            update_script
             ;;
         0)
             echo "谢谢使用，再见！"
@@ -245,6 +254,297 @@ show_main_menu() {
             show_main_menu
             ;;
     esac
+}
+
+# 软件源管理菜单
+package_manager_menu() {
+    clear
+    echo -e "${GREEN}=============================${NC}"
+    echo -e "${GREEN}       软件源管理       ${NC}"
+    echo -e "${GREEN}=============================${NC}"
+    echo ""
+    echo -e "${BLUE}1.${NC} 更新软件包列表"
+    echo -e "${BLUE}2.${NC} 升级所有软件包"
+    echo -e "${BLUE}0.${NC} 返回主菜单"
+    echo ""
+    echo -e "${GREEN}=============================${NC}"
+    echo ""
+    read -p "请选择操作 [0-2]: " choice
+
+    case $choice in
+        1)
+            update_package_list
+            ;;
+        2)
+            upgrade_packages
+            ;;
+        0)
+            show_main_menu
+            ;;
+        *)
+            echo -e "${RED}无效选择，请重试${NC}"
+            sleep 1
+            package_manager_menu
+            ;;
+    esac
+}
+
+# 检测并返回包管理器类型
+detect_package_manager() {
+    if command -v apt &> /dev/null; then
+        echo "apt"
+    elif command -v apt-get &> /dev/null; then
+        echo "apt-get"
+    elif command -v dnf &> /dev/null; then
+        echo "dnf"
+    elif command -v yum &> /dev/null; then
+        echo "yum"
+    elif command -v zypper &> /dev/null; then
+        echo "zypper"
+    elif command -v pacman &> /dev/null; then
+        echo "pacman"
+    else
+        echo "unknown"
+    fi
+}
+
+# 更新软件包列表
+update_package_list() {
+    clear
+    echo -e "${GREEN}=============================${NC}"
+    echo -e "${GREEN}      更新软件包列表      ${NC}"
+    echo -e "${GREEN}=============================${NC}"
+    echo ""
+    
+    # 检测包管理器类型
+    PACKAGE_MANAGER=$(detect_package_manager)
+    
+    echo -e "${YELLOW}检测到的包管理器: $PACKAGE_MANAGER${NC}"
+    echo ""
+    
+    case $PACKAGE_MANAGER in
+        apt|apt-get)
+            echo -e "${YELLOW}正在更新 APT 软件包列表...${NC}"
+            echo -e "${GREEN}执行: sudo $PACKAGE_MANAGER update${NC}"
+            echo ""
+            sudo $PACKAGE_MANAGER update
+            ;;
+        dnf|yum)
+            echo -e "${YELLOW}正在更新 DNF/YUM 软件包列表...${NC}"
+            echo -e "${GREEN}执行: sudo $PACKAGE_MANAGER check-update${NC}"
+            echo ""
+            sudo $PACKAGE_MANAGER check-update
+            ;;
+        zypper)
+            echo -e "${YELLOW}正在更新 Zypper 软件包列表...${NC}"
+            echo -e "${GREEN}执行: sudo zypper refresh${NC}"
+            echo ""
+            sudo zypper refresh
+            ;;
+        pacman)
+            echo -e "${YELLOW}正在更新 Pacman 软件包列表...${NC}"
+            echo -e "${GREEN}执行: sudo pacman -Sy${NC}"
+            echo ""
+            sudo pacman -Sy
+            ;;
+        *)
+            echo -e "${RED}错误: 无法识别的包管理器，无法更新软件包列表。${NC}"
+            echo -e "${RED}此功能支持 apt、apt-get、dnf、yum、zypper 和 pacman。${NC}"
+            ;;
+    esac
+    
+    echo ""
+    echo -e "${GREEN}操作完成${NC}"
+    
+    read -p "按任意键返回..." -n1
+    package_manager_menu
+}
+
+# 升级所有软件包
+upgrade_packages() {
+    clear
+    echo -e "${GREEN}=============================${NC}"
+    echo -e "${GREEN}      升级所有软件包      ${NC}"
+    echo -e "${GREEN}=============================${NC}"
+    echo ""
+    
+    # 检测包管理器类型
+    PACKAGE_MANAGER=$(detect_package_manager)
+    
+    echo -e "${YELLOW}检测到的包管理器: $PACKAGE_MANAGER${NC}"
+    echo ""
+    
+    # 确认升级
+    read -p "确定要升级所有软件包吗? 这可能需要一些时间 (y/n): " confirm
+    if [[ "$confirm" != "y" ]]; then
+        echo -e "${YELLOW}升级已取消${NC}"
+        read -p "按任意键返回..." -n1
+        package_manager_menu
+        return
+    fi
+    
+    echo ""
+    
+    case $PACKAGE_MANAGER in
+        apt|apt-get)
+            echo -e "${YELLOW}正在升级所有 APT 软件包...${NC}"
+            echo -e "${GREEN}执行: sudo $PACKAGE_MANAGER upgrade -y${NC}"
+            echo ""
+            sudo $PACKAGE_MANAGER upgrade -y
+            ;;
+        dnf)
+            echo -e "${YELLOW}正在升级所有 DNF 软件包...${NC}"
+            echo -e "${GREEN}执行: sudo dnf upgrade -y${NC}"
+            echo ""
+            sudo dnf upgrade -y
+            ;;
+        yum)
+            echo -e "${YELLOW}正在升级所有 YUM 软件包...${NC}"
+            echo -e "${GREEN}执行: sudo yum update -y${NC}"
+            echo ""
+            sudo yum update -y
+            ;;
+        zypper)
+            echo -e "${YELLOW}正在升级所有 Zypper 软件包...${NC}"
+            echo -e "${GREEN}执行: sudo zypper update -y${NC}"
+            echo ""
+            sudo zypper update -y
+            ;;
+        pacman)
+            echo -e "${YELLOW}正在升级所有 Pacman 软件包...${NC}"
+            echo -e "${GREEN}执行: sudo pacman -Syu --noconfirm${NC}"
+            echo ""
+            sudo pacman -Syu --noconfirm
+            ;;
+        *)
+            echo -e "${RED}错误: 无法识别的包管理器，无法升级软件包。${NC}"
+            echo -e "${RED}此功能支持 apt、apt-get、dnf、yum、zypper 和 pacman。${NC}"
+            ;;
+    esac
+    
+    echo ""
+    echo -e "${GREEN}升级操作完成${NC}"
+    
+    read -p "按任意键返回..." -n1
+    package_manager_menu
+}
+
+# 检查脚本更新
+update_script() {
+    clear
+    echo -e "${GREEN}=============================${NC}"
+    echo -e "${GREEN}      检查脚本更新      ${NC}"
+    echo -e "${GREEN}=============================${NC}"
+    echo ""
+    
+    echo -e "${YELLOW}当前版本: ${SCRIPT_VERSION}${NC}"
+    echo -e "${YELLOW}正在检查更新...${NC}"
+    echo ""
+    
+    # 检查是否安装了curl
+    if ! command -v curl &> /dev/null; then
+        echo -e "${RED}错误: curl 未安装，无法检查更新。${NC}"
+        echo -e "${YELLOW}请先安装 curl 再尝试更新。${NC}"
+        read -p "按任意键返回..." -n1
+        show_main_menu
+        return
+    fi
+    
+    # 创建临时文件
+    TMP_FILE=$(mktemp)
+    
+    # 下载最新版本的脚本
+    if curl -s "$SCRIPT_UPDATE_URL" -o "$TMP_FILE"; then
+        # 获取新版本号
+        NEW_VERSION=$(grep "SCRIPT_VERSION=" "$TMP_FILE" | head -n 1 | cut -d'"' -f2)
+        
+        if [ -z "$NEW_VERSION" ]; then
+            echo -e "${RED}错误: 无法解析脚本版本号。${NC}"
+            rm -f "$TMP_FILE"
+            read -p "按任意键返回..." -n1
+            show_main_menu
+            return
+        fi
+        
+        echo -e "${YELLOW}最新版本: ${NEW_VERSION}${NC}"
+        echo ""
+        
+        # 比较版本号
+        if [ "$SCRIPT_VERSION" = "$NEW_VERSION" ]; then
+            echo -e "${GREEN}您已经使用最新版本的脚本!${NC}"
+            rm -f "$TMP_FILE"
+            read -p "按任意键返回..." -n1
+            show_main_menu
+            return
+        fi
+        
+        # 询问是否更新
+        echo -e "${YELLOW}发现新版本!${NC}"
+        read -p "是否更新到版本 ${NEW_VERSION}? (y/n): " update_choice
+        
+        if [ "$update_choice" != "y" ]; then
+            echo -e "${YELLOW}更新已取消${NC}"
+            rm -f "$TMP_FILE"
+            read -p "按任意键返回..." -n1
+            show_main_menu
+            return
+        fi
+        
+        # 备份当前脚本
+        BACKUP_FILE="linux.sh.bak.$(date +%Y%m%d%H%M%S)"
+        cp "$(readlink -f "$0")" "$BACKUP_FILE"
+        
+        if [ $? -ne 0 ]; then
+            echo -e "${RED}错误: 无法创建备份文件。${NC}"
+            rm -f "$TMP_FILE"
+            read -p "按任意键返回..." -n1
+            show_main_menu
+            return
+        fi
+        
+        echo -e "${GREEN}已创建备份文件: ${BACKUP_FILE}${NC}"
+        
+        # 替换当前脚本
+        cat "$TMP_FILE" > "$(readlink -f "$0")"
+        
+        if [ $? -ne 0 ]; then
+            echo -e "${RED}错误: 无法更新脚本。尝试使用sudo权限。${NC}"
+            sudo cat "$TMP_FILE" > "$(readlink -f "$0")"
+            
+            if [ $? -ne 0 ]; then
+                echo -e "${RED}更新失败，将恢复备份。${NC}"
+                cp "$BACKUP_FILE" "$(readlink -f "$0")"
+                rm -f "$TMP_FILE"
+                read -p "按任意键返回..." -n1
+                show_main_menu
+                return
+            fi
+        fi
+        
+        # 设置执行权限
+        chmod +x "$(readlink -f "$0")"
+        
+        echo -e "${GREEN}脚本已更新到版本 ${NEW_VERSION}!${NC}"
+        echo -e "${YELLOW}请重新启动脚本以应用更改。${NC}"
+        
+        # 清理临时文件
+        rm -f "$TMP_FILE"
+        
+        # 询问用户是否立即重启脚本
+        read -p "是否立即重启脚本? (y/n): " restart
+        if [ "$restart" = "y" ]; then
+            exec "$(readlink -f "$0")"
+            exit 0
+        else
+            read -p "按任意键返回..." -n1
+            show_main_menu
+        fi
+    else
+        echo -e "${RED}错误: 无法连接到更新服务器。${NC}"
+        rm -f "$TMP_FILE"
+        read -p "按任意键返回..." -n1
+        show_main_menu
+    fi
 }
 
 # 主程序入口点
