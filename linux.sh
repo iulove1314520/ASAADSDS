@@ -663,94 +663,151 @@ update_script() {
     TMP_FILE=$(mktemp)
     
     # 下载最新版本的脚本
-    if curl -s "$SCRIPT_UPDATE_URL" -o "$TMP_FILE"; then
-        # 获取新版本号
-        NEW_VERSION=$(grep "SCRIPT_VERSION=" "$TMP_FILE" | head -n 1 | cut -d'"' -f2)
-        
-        if [ -z "$NEW_VERSION" ]; then
-            echo -e "${RED}错误: 无法解析脚本版本号。${NC}"
-            rm -f "$TMP_FILE"
-            read -p "按任意键返回..." -n1
-            show_main_menu
-            return
-        fi
-        
-        echo -e "${YELLOW}最新版本: ${NEW_VERSION}${NC}"
-        echo ""
-        
-        # 比较版本号
-        if [ "$SCRIPT_VERSION" = "$NEW_VERSION" ]; then
-            echo -e "${GREEN}您已经使用最新版本的脚本!${NC}"
-            rm -f "$TMP_FILE"
-            read -p "按任意键返回..." -n1
-            show_main_menu
-            return
-        fi
-        
-        # 询问是否更新
-        echo -e "${YELLOW}发现新版本!${NC}"
-        read -p "是否更新到版本 ${NEW_VERSION}? (y/n): " update_choice
-        
-        if [ "$update_choice" != "y" ]; then
-            echo -e "${YELLOW}更新已取消${NC}"
-            rm -f "$TMP_FILE"
-            read -p "按任意键返回..." -n1
-            show_main_menu
-            return
-        fi
-        
-        # 备份当前脚本
-        BACKUP_FILE="linux.sh.bak.$(date +%Y%m%d%H%M%S)"
-        cp "$(readlink -f "$0")" "$BACKUP_FILE"
-        
-        if [ $? -ne 0 ]; then
-            echo -e "${RED}错误: 无法创建备份文件。${NC}"
-            rm -f "$TMP_FILE"
-            read -p "按任意键返回..." -n1
-            show_main_menu
-            return
-        fi
-        
-        echo -e "${GREEN}已创建备份文件: ${BACKUP_FILE}${NC}"
-        
-        # 替换当前脚本
-        cat "$TMP_FILE" > "$(readlink -f "$0")"
-        
-        if [ $? -ne 0 ]; then
-            echo -e "${RED}错误: 无法更新脚本。尝试使用sudo权限。${NC}"
-            sudo cat "$TMP_FILE" > "$(readlink -f "$0")"
-            
-            if [ $? -ne 0 ]; then
-                echo -e "${RED}更新失败，将恢复备份。${NC}"
-                cp "$BACKUP_FILE" "$(readlink -f "$0")"
-                rm -f "$TMP_FILE"
-                read -p "按任意键返回..." -n1
-                show_main_menu
-                return
-            fi
-        fi
-        
-        # 设置执行权限
-        chmod +x "$(readlink -f "$0")"
-        
-        echo -e "${GREEN}脚本已更新到版本 ${NEW_VERSION}!${NC}"
-        echo -e "${YELLOW}请重新启动脚本以应用更改。${NC}"
-        
-        # 清理临时文件
-        rm -f "$TMP_FILE"
-        
-        # 询问用户是否立即重启脚本
-        read -p "是否立即重启脚本? (y/n): " restart
-        if [ "$restart" = "y" ]; then
-            exec "$(readlink -f "$0")"
-            exit 0
-        else
-            read -p "按任意键返回..." -n1
-            show_main_menu
-        fi
-    else
+    if ! curl -s "$SCRIPT_UPDATE_URL" -o "$TMP_FILE"; then
         echo -e "${RED}错误: 无法连接到更新服务器。${NC}"
+        echo -e "${YELLOW}请检查您的网络连接或稍后再试。${NC}"
         rm -f "$TMP_FILE"
+        read -p "按任意键返回..." -n1
+        show_main_menu
+        return
+    fi
+    
+    # 检查下载的文件是否为空或太小
+    if [ ! -s "$TMP_FILE" ] || [ $(wc -c < "$TMP_FILE") -lt 100 ]; then
+        echo -e "${RED}错误: 下载的文件无效或为空。${NC}"
+        rm -f "$TMP_FILE"
+        read -p "按任意键返回..." -n1
+        show_main_menu
+        return
+    fi
+    
+    # 获取新版本号
+    NEW_VERSION=$(grep "SCRIPT_VERSION=" "$TMP_FILE" | head -n 1 | cut -d'"' -f2)
+    
+    if [ -z "$NEW_VERSION" ]; then
+        echo -e "${RED}错误: 无法解析脚本版本号。${NC}"
+        rm -f "$TMP_FILE"
+        read -p "按任意键返回..." -n1
+        show_main_menu
+        return
+    fi
+    
+    echo -e "${YELLOW}最新版本: ${NEW_VERSION}${NC}"
+    echo ""
+    
+    # 比较版本号 (使用更可靠的比较方法)
+    # 将版本号拆分为主要部分并比较
+    local CURRENT_MAJOR=$(echo "$SCRIPT_VERSION" | cut -d. -f1)
+    local CURRENT_MINOR=$(echo "$SCRIPT_VERSION" | cut -d. -f2)
+    local CURRENT_PATCH=$(echo "$SCRIPT_VERSION" | cut -d. -f3)
+    
+    local NEW_MAJOR=$(echo "$NEW_VERSION" | cut -d. -f1)
+    local NEW_MINOR=$(echo "$NEW_VERSION" | cut -d. -f2)
+    local NEW_PATCH=$(echo "$NEW_VERSION" | cut -d. -f3)
+    
+    local UPDATE_AVAILABLE=false
+    
+    # 检查新版本是否大于当前版本
+    if [ "$NEW_MAJOR" -gt "$CURRENT_MAJOR" ]; then
+        UPDATE_AVAILABLE=true
+    elif [ "$NEW_MAJOR" -eq "$CURRENT_MAJOR" ] && [ "$NEW_MINOR" -gt "$CURRENT_MINOR" ]; then
+        UPDATE_AVAILABLE=true
+    elif [ "$NEW_MAJOR" -eq "$CURRENT_MAJOR" ] && [ "$NEW_MINOR" -eq "$CURRENT_MINOR" ] && [ "$NEW_PATCH" -gt "$CURRENT_PATCH" ]; then
+        UPDATE_AVAILABLE=true
+    fi
+    
+    if [ "$UPDATE_AVAILABLE" = false ]; then
+        echo -e "${GREEN}您已经使用最新版本的脚本!${NC}"
+        rm -f "$TMP_FILE"
+        read -p "按任意键返回..." -n1
+        show_main_menu
+        return
+    fi
+    
+    # 询问是否更新
+    echo -e "${YELLOW}发现新版本!${NC}"
+    echo -e "${GREEN}版本 ${SCRIPT_VERSION} -> 版本 ${NEW_VERSION}${NC}"
+    echo ""
+    echo -e "${BLUE}更新可能包含新功能、性能优化和错误修复。${NC}"
+    read -p "是否更新到新版本? (y/n): " update_choice
+    
+    if [ "$update_choice" != "y" ]; then
+        echo -e "${YELLOW}更新已取消${NC}"
+        rm -f "$TMP_FILE"
+        read -p "按任意键返回..." -n1
+        show_main_menu
+        return
+    fi
+    
+    # 检查当前脚本是否可写
+    if [ ! -w "$(readlink -f "$0")" ]; then
+        echo -e "${YELLOW}警告: 当前脚本文件不可写，尝试使用sudo权限。${NC}"
+        NEED_SUDO=true
+    else
+        NEED_SUDO=false
+    fi
+    
+    # 备份当前脚本
+    BACKUP_FILE="linux.sh.bak.$(date +%Y%m%d%H%M%S)"
+    if [ "$NEED_SUDO" = true ]; then
+        sudo cp "$(readlink -f "$0")" "$BACKUP_FILE"
+    else
+        cp "$(readlink -f "$0")" "$BACKUP_FILE"
+    fi
+    
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}错误: 无法创建备份文件。${NC}"
+        rm -f "$TMP_FILE"
+        read -p "按任意键返回..." -n1
+        show_main_menu
+        return
+    fi
+    
+    echo -e "${GREEN}已创建备份文件: ${BACKUP_FILE}${NC}"
+    
+    # 替换当前脚本
+    if [ "$NEED_SUDO" = true ]; then
+        sudo bash -c "cat \"$TMP_FILE\" > \"$(readlink -f "$0")\""
+    else
+        cat "$TMP_FILE" > "$(readlink -f "$0")"
+    fi
+    
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}错误: 无法更新脚本。${NC}"
+        echo -e "${YELLOW}尝试恢复备份...${NC}"
+        
+        if [ "$NEED_SUDO" = true ]; then
+            sudo cp "$BACKUP_FILE" "$(readlink -f "$0")"
+        else
+            cp "$BACKUP_FILE" "$(readlink -f "$0")"
+        fi
+        
+        rm -f "$TMP_FILE"
+        read -p "按任意键返回..." -n1
+        show_main_menu
+        return
+    fi
+    
+    # 设置执行权限
+    if [ "$NEED_SUDO" = true ]; then
+        sudo chmod +x "$(readlink -f "$0")"
+    else
+        chmod +x "$(readlink -f "$0")"
+    fi
+    
+    echo -e "${GREEN}✅ 脚本已成功更新到版本 ${NEW_VERSION}!${NC}"
+    echo -e "${YELLOW}请重新启动脚本以应用更改。${NC}"
+    
+    # 清理临时文件
+    rm -f "$TMP_FILE"
+    
+    # 询问用户是否立即重启脚本
+    read -p "是否立即重启脚本? (y/n): " restart
+    if [ "$restart" = "y" ]; then
+        echo -e "${GREEN}正在重启脚本...${NC}"
+        exec "$(readlink -f "$0")"
+        exit 0
+    else
         read -p "按任意键返回..." -n1
         show_main_menu
     fi
