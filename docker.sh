@@ -3,7 +3,7 @@
 # Docker管理脚本
 
 # 脚本版本号
-SCRIPT_VERSION="1.1.0"
+SCRIPT_VERSION="1.2.0"
 SCRIPT_UPDATE_URL="https://raw.githubusercontent.com/iulove1314520/ASAADSDS/refs/heads/main/docker.sh"
 
 # 设置终端颜色
@@ -1688,7 +1688,7 @@ configure_npm_installation() {
     echo ""
     
     # 选择安装目录
-    default_install_dir="$HOME/nginx-proxy-manager"
+    default_install_dir="/root/docker/nginx-proxy-manager"
     read -p "安装目录 [$default_install_dir]: " install_dir
     install_dir=${install_dir:-$default_install_dir}
     
@@ -1972,7 +1972,7 @@ install_watchtower() {
     echo ""
     
     # 选择安装目录
-    default_install_dir="$HOME/watchtower"
+    default_install_dir="/root/docker/watchtower"
     read -p "安装目录 [$default_install_dir]: " install_dir
     install_dir=${install_dir:-$default_install_dir}
     
