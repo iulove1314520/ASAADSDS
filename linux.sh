@@ -3,7 +3,7 @@
 # Linux系统管理脚本
 
 # 脚本版本号
-SCRIPT_VERSION="1.4.0"
+SCRIPT_VERSION="1.5.0"
 SCRIPT_UPDATE_URL="https://raw.githubusercontent.com/iulove1314520/ASAADSDS/refs/heads/main/linux.sh"
 
 # 设置终端颜色
@@ -228,12 +228,13 @@ show_main_menu() {
     echo -e "${BLUE}1.${NC} 查看系统详细信息"
     echo -e "${BLUE}2.${NC} 软件源管理"
     echo -e "${BLUE}3.${NC} 防火墙管理"
-    echo -e "${BLUE}4.${NC} 检查脚本更新"
+    echo -e "${BLUE}4.${NC} 检查端口占用"
+    echo -e "${BLUE}5.${NC} 检查脚本更新"
     echo -e "${BLUE}0.${NC} 退出"
     echo ""
     echo -e "${GREEN}=============================${NC}"
     echo ""
-    read -p "请选择操作 [0-4]: " choice
+    read -p "请选择操作 [0-5]: " choice
 
     case $choice in
         1)
@@ -246,6 +247,9 @@ show_main_menu() {
             firewall_menu
             ;;
         4)
+            port_check_menu
+            ;;
+        5)
             update_script
             ;;
         0)
@@ -1161,6 +1165,194 @@ check_firewall_status() {
     echo ""
     read -p "按任意键返回..." -n1
     firewall_menu
+}
+
+# 检查端口占用菜单
+port_check_menu() {
+    clear
+    echo -e "${GREEN}=============================${NC}"
+    echo -e "${GREEN}       端口占用检查       ${NC}"
+    echo -e "${GREEN}=============================${NC}"
+    echo ""
+    echo -e "${BLUE}1.${NC} 检查特定端口"
+    echo -e "${BLUE}2.${NC} 查看所有开放端口"
+    echo -e "${BLUE}3.${NC} 查看所有已建立的连接"
+    echo -e "${BLUE}0.${NC} 返回主菜单"
+    echo ""
+    echo -e "${GREEN}=============================${NC}"
+    echo ""
+    read -p "请选择操作 [0-3]: " choice
+
+    case $choice in
+        1)
+            check_specific_port
+            ;;
+        2)
+            list_all_open_ports
+            ;;
+        3)
+            list_all_connections
+            ;;
+        0)
+            show_main_menu
+            ;;
+        *)
+            echo -e "${RED}无效选择，请重试${NC}"
+            sleep 1
+            port_check_menu
+            ;;
+    esac
+}
+
+# 检查特定端口占用
+check_specific_port() {
+    clear
+    echo -e "${GREEN}=============================${NC}"
+    echo -e "${GREEN}      检查特定端口占用      ${NC}"
+    echo -e "${GREEN}=============================${NC}"
+    echo ""
+    
+    read -p "请输入要检查的端口号: " port
+    
+    # 验证端口号是否有效
+    if ! [[ "$port" =~ ^[0-9]+$ ]] || [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
+        echo -e "${RED}错误: 无效的端口号! 端口号必须是1-65535之间的整数。${NC}"
+        read -p "按任意键返回..." -n1
+        port_check_menu
+        return
+    fi
+    
+    echo -e "${YELLOW}正在检查端口 $port 的占用情况...${NC}"
+    echo ""
+    
+    # 使用不同命令检查端口占用
+    echo -e "${BLUE}使用 lsof 检查:${NC}"
+    if command -v lsof &> /dev/null; then
+        echo -e "${GREEN}执行: sudo lsof -i:$port${NC}"
+        echo ""
+        sudo lsof -i:$port
+        if [ $? -ne 0 ]; then
+            echo -e "${YELLOW}没有进程占用端口 $port${NC}"
+        fi
+    else
+        echo -e "${RED}lsof 命令不可用${NC}"
+    fi
+    
+    echo ""
+    echo -e "${BLUE}使用 netstat 检查:${NC}"
+    if command -v netstat &> /dev/null; then
+        echo -e "${GREEN}执行: sudo netstat -tuln | grep :$port${NC}"
+        echo ""
+        sudo netstat -tuln | grep ":$port"
+        if [ $? -ne 0 ]; then
+            echo -e "${YELLOW}netstat 未发现端口 $port 有活动${NC}"
+        fi
+    else
+        echo -e "${RED}netstat 命令不可用${NC}"
+    fi
+    
+    echo ""
+    echo -e "${BLUE}使用 ss 检查:${NC}"
+    if command -v ss &> /dev/null; then
+        echo -e "${GREEN}执行: sudo ss -tuln | grep :$port${NC}"
+        echo ""
+        sudo ss -tuln | grep ":$port"
+        if [ $? -ne 0 ]; then
+            echo -e "${YELLOW}ss 未发现端口 $port 有活动${NC}"
+        fi
+    else
+        echo -e "${RED}ss 命令不可用${NC}"
+    fi
+    
+    echo ""
+    read -p "按任意键返回..." -n1
+    port_check_menu
+}
+
+# 列出所有开放端口
+list_all_open_ports() {
+    clear
+    echo -e "${GREEN}=============================${NC}"
+    echo -e "${GREEN}        所有开放端口        ${NC}"
+    echo -e "${GREEN}=============================${NC}"
+    echo ""
+    
+    echo -e "${YELLOW}正在获取所有开放的端口...${NC}"
+    echo ""
+    
+    FOUND_CMD=false
+    
+    if command -v ss &> /dev/null; then
+        FOUND_CMD=true
+        echo -e "${BLUE}使用 ss 命令列出所有监听端口:${NC}"
+        echo -e "${GREEN}执行: sudo ss -tuln${NC}"
+        echo ""
+        sudo ss -tuln
+    elif command -v netstat &> /dev/null; then
+        FOUND_CMD=true
+        echo -e "${BLUE}使用 netstat 命令列出所有监听端口:${NC}"
+        echo -e "${GREEN}执行: sudo netstat -tuln${NC}"
+        echo ""
+        sudo netstat -tuln
+    elif command -v lsof &> /dev/null; then
+        FOUND_CMD=true
+        echo -e "${BLUE}使用 lsof 命令列出所有监听端口:${NC}"
+        echo -e "${GREEN}执行: sudo lsof -i -P -n | grep LISTEN${NC}"
+        echo ""
+        sudo lsof -i -P -n | grep LISTEN
+    fi
+    
+    if [ "$FOUND_CMD" = false ]; then
+        echo -e "${RED}错误: 未找到可用于检查端口的命令 (ss, netstat, lsof)${NC}"
+        echo -e "${YELLOW}请安装这些工具中的一个以使用此功能${NC}"
+    fi
+    
+    echo ""
+    read -p "按任意键返回..." -n1
+    port_check_menu
+}
+
+# 列出所有已建立的连接
+list_all_connections() {
+    clear
+    echo -e "${GREEN}=============================${NC}"
+    echo -e "${GREEN}      所有已建立的连接      ${NC}"
+    echo -e "${GREEN}=============================${NC}"
+    echo ""
+    
+    echo -e "${YELLOW}正在获取所有已建立的连接...${NC}"
+    echo ""
+    
+    FOUND_CMD=false
+    
+    if command -v ss &> /dev/null; then
+        FOUND_CMD=true
+        echo -e "${BLUE}使用 ss 命令列出已建立的连接:${NC}"
+        echo -e "${GREEN}执行: sudo ss -tu state established${NC}"
+        echo ""
+        sudo ss -tu state established
+    elif command -v netstat &> /dev/null; then
+        FOUND_CMD=true
+        echo -e "${BLUE}使用 netstat 命令列出已建立的连接:${NC}"
+        echo -e "${GREEN}执行: sudo netstat -tune | grep ESTABLISHED${NC}"
+        echo ""
+        sudo netstat -tune | grep ESTABLISHED
+    elif command -v lsof &> /dev/null; then
+        FOUND_CMD=true
+        echo -e "${BLUE}使用 lsof 命令列出已建立的连接:${NC}"
+        echo -e "${GREEN}执行: sudo lsof -i -P -n | grep ESTABLISHED${NC}"
+        echo ""
+        sudo lsof -i -P -n | grep ESTABLISHED
+    fi
+    
+    if [ "$FOUND_CMD" = false ]; then
+        echo -e "${RED}错误: 未找到可用于检查连接的命令 (ss, netstat, lsof)${NC}"
+        echo -e "${YELLOW}请安装这些工具中的一个以使用此功能${NC}"
+    fi
+    
+    echo ""
+    read -p "按任意键返回..." -n1
+    port_check_menu
 }
 
 # 主程序入口点
