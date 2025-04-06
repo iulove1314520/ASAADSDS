@@ -3,7 +3,7 @@
 # Linux系统管理脚本
 
 # 脚本版本号
-SCRIPT_VERSION="1.2.0"
+SCRIPT_VERSION="1.3.1"
 SCRIPT_UPDATE_URL="https://raw.githubusercontent.com/iulove1314520/ASAADSDS/refs/heads/main/linux.sh"
 
 # 设置终端颜色
@@ -263,20 +263,28 @@ package_manager_menu() {
     echo -e "${GREEN}       软件源管理       ${NC}"
     echo -e "${GREEN}=============================${NC}"
     echo ""
-    echo -e "${BLUE}1.${NC} 更新软件包列表"
-    echo -e "${BLUE}2.${NC} 升级所有软件包"
+    echo -e "${BLUE}1.${NC} 更新系统(更新+升级)"
+    echo -e "${BLUE}2.${NC} 仅更新软件包列表"
+    echo -e "${BLUE}3.${NC} 仅升级软件包"
+    echo -e "${BLUE}4.${NC} 切换软件源镜像"
     echo -e "${BLUE}0.${NC} 返回主菜单"
     echo ""
     echo -e "${GREEN}=============================${NC}"
     echo ""
-    read -p "请选择操作 [0-2]: " choice
+    read -p "请选择操作 [0-4]: " choice
 
     case $choice in
         1)
-            update_package_list
+            update_and_upgrade
             ;;
         2)
+            update_package_list
+            ;;
+        3)
             upgrade_packages
+            ;;
+        4)
+            change_mirrors_menu
             ;;
         0)
             show_main_menu
@@ -285,6 +293,199 @@ package_manager_menu() {
             echo -e "${RED}无效选择，请重试${NC}"
             sleep 1
             package_manager_menu
+            ;;
+    esac
+}
+
+# 切换软件源镜像菜单
+change_mirrors_menu() {
+    clear
+    echo -e "${GREEN}=============================${NC}"
+    echo -e "${GREEN}      切换软件源镜像      ${NC}"
+    echo -e "${GREEN}=============================${NC}"
+    echo ""
+    echo -e "${BLUE}1.${NC} 中国大陆软件源"
+    echo -e "${BLUE}2.${NC} 境外软件源"
+    echo -e "${BLUE}0.${NC} 返回上级菜单"
+    echo ""
+    echo -e "${GREEN}=============================${NC}"
+    echo ""
+    read -p "请选择操作 [0-2]: " choice
+
+    case $choice in
+        1)
+            change_mirrors_china
+            ;;
+        2)
+            change_mirrors_abroad
+            ;;
+        0)
+            package_manager_menu
+            ;;
+        *)
+            echo -e "${RED}无效选择，请重试${NC}"
+            sleep 1
+            change_mirrors_menu
+            ;;
+    esac
+}
+
+# 切换中国大陆软件源
+change_mirrors_china() {
+    clear
+    echo -e "${GREEN}=============================${NC}"
+    echo -e "${GREEN}     切换中国大陆软件源     ${NC}"
+    echo -e "${GREEN}=============================${NC}"
+    echo ""
+    echo -e "${YELLOW}请选择中国大陆软件源:${NC}"
+    echo -e "${BLUE}1.${NC} Gitee源 (推荐，国内访问速度快)"
+    echo -e "${BLUE}2.${NC} GitHub源 (通过curl方式)"
+    echo -e "${BLUE}3.${NC} Gitee源 (通过curl方式)"
+    echo -e "${BLUE}0.${NC} 返回上级菜单"
+    echo ""
+    echo -e "${GREEN}=============================${NC}"
+    echo ""
+    read -p "请选择操作 [0-3]: " choice
+
+    case $choice in
+        1)
+            echo -e "${YELLOW}正在使用Gitee源切换软件源...${NC}"
+            echo -e "${GREEN}执行: bash <(curl -sSL https://gitee.com/SuperManito/LinuxMirrors/raw/main/ChangeMirrors.sh)${NC}"
+            echo ""
+            # 确认执行
+            read -p "确定要执行此操作吗? (y/n): " confirm
+            if [[ "$confirm" == "y" ]]; then
+                bash <(curl -sSL https://gitee.com/SuperManito/LinuxMirrors/raw/main/ChangeMirrors.sh)
+                echo ""
+                echo -e "${GREEN}操作完成${NC}"
+                read -p "按任意键返回..." -n1
+            else
+                echo -e "${YELLOW}操作已取消${NC}"
+                sleep 1
+            fi
+            change_mirrors_china
+            ;;
+        2)
+            echo -e "${YELLOW}正在使用GitHub源切换软件源...${NC}"
+            echo -e "${GREEN}执行: bash <(curl -sSL https://raw.githubusercontent.com/SuperManito/LinuxMirrors/main/ChangeMirrors.sh)${NC}"
+            echo ""
+            # 确认执行
+            read -p "确定要执行此操作吗? (y/n): " confirm
+            if [[ "$confirm" == "y" ]]; then
+                bash <(curl -sSL https://raw.githubusercontent.com/SuperManito/LinuxMirrors/main/ChangeMirrors.sh)
+                echo ""
+                echo -e "${GREEN}操作完成${NC}"
+                read -p "按任意键返回..." -n1
+            else
+                echo -e "${YELLOW}操作已取消${NC}"
+                sleep 1
+            fi
+            change_mirrors_china
+            ;;
+        3)
+            echo -e "${YELLOW}正在使用Gitee源(curl方式)切换软件源...${NC}"
+            echo -e "${GREEN}执行: bash <(curl -sSL https://gitee.com/SuperManito/LinuxMirrors/raw/main/ChangeMirrors.sh)${NC}"
+            echo ""
+            # 确认执行
+            read -p "确定要执行此操作吗? (y/n): " confirm
+            if [[ "$confirm" == "y" ]]; then
+                bash <(curl -sSL https://gitee.com/SuperManito/LinuxMirrors/raw/main/ChangeMirrors.sh)
+                echo ""
+                echo -e "${GREEN}操作完成${NC}"
+                read -p "按任意键返回..." -n1
+            else
+                echo -e "${YELLOW}操作已取消${NC}"
+                sleep 1
+            fi
+            change_mirrors_china
+            ;;
+        0)
+            change_mirrors_menu
+            ;;
+        *)
+            echo -e "${RED}无效选择，请重试${NC}"
+            sleep 1
+            change_mirrors_china
+            ;;
+    esac
+}
+
+# 切换境外软件源
+change_mirrors_abroad() {
+    clear
+    echo -e "${GREEN}=============================${NC}"
+    echo -e "${GREEN}      切换境外软件源      ${NC}"
+    echo -e "${GREEN}=============================${NC}"
+    echo ""
+    echo -e "${YELLOW}请选择境外软件源:${NC}"
+    echo -e "${BLUE}1.${NC} LinuxMirrors.cn源"
+    echo -e "${BLUE}2.${NC} GitHub源 (--abroad参数)"
+    echo -e "${BLUE}3.${NC} Gitee源 (--abroad参数)"
+    echo -e "${BLUE}0.${NC} 返回上级菜单"
+    echo ""
+    echo -e "${GREEN}=============================${NC}"
+    echo ""
+    read -p "请选择操作 [0-3]: " choice
+
+    case $choice in
+        1)
+            echo -e "${YELLOW}正在使用LinuxMirrors.cn源切换境外软件源...${NC}"
+            echo -e "${GREEN}执行: bash <(curl -sSL https://linuxmirrors.cn/main.sh) --abroad${NC}"
+            echo ""
+            # 确认执行
+            read -p "确定要执行此操作吗? (y/n): " confirm
+            if [[ "$confirm" == "y" ]]; then
+                bash <(curl -sSL https://linuxmirrors.cn/main.sh) --abroad
+                echo ""
+                echo -e "${GREEN}操作完成${NC}"
+                read -p "按任意键返回..." -n1
+            else
+                echo -e "${YELLOW}操作已取消${NC}"
+                sleep 1
+            fi
+            change_mirrors_abroad
+            ;;
+        2)
+            echo -e "${YELLOW}正在使用GitHub源切换境外软件源...${NC}"
+            echo -e "${GREEN}执行: bash <(curl -sSL https://raw.githubusercontent.com/SuperManito/LinuxMirrors/main/ChangeMirrors.sh) --abroad${NC}"
+            echo ""
+            # 确认执行
+            read -p "确定要执行此操作吗? (y/n): " confirm
+            if [[ "$confirm" == "y" ]]; then
+                bash <(curl -sSL https://raw.githubusercontent.com/SuperManito/LinuxMirrors/main/ChangeMirrors.sh) --abroad
+                echo ""
+                echo -e "${GREEN}操作完成${NC}"
+                read -p "按任意键返回..." -n1
+            else
+                echo -e "${YELLOW}操作已取消${NC}"
+                sleep 1
+            fi
+            change_mirrors_abroad
+            ;;
+        3)
+            echo -e "${YELLOW}正在使用Gitee源切换境外软件源...${NC}"
+            echo -e "${GREEN}执行: bash <(curl -sSL https://gitee.com/SuperManito/LinuxMirrors/raw/main/ChangeMirrors.sh) --abroad${NC}"
+            echo ""
+            # 确认执行
+            read -p "确定要执行此操作吗? (y/n): " confirm
+            if [[ "$confirm" == "y" ]]; then
+                bash <(curl -sSL https://gitee.com/SuperManito/LinuxMirrors/raw/main/ChangeMirrors.sh) --abroad
+                echo ""
+                echo -e "${GREEN}操作完成${NC}"
+                read -p "按任意键返回..." -n1
+            else
+                echo -e "${YELLOW}操作已取消${NC}"
+                sleep 1
+            fi
+            change_mirrors_abroad
+            ;;
+        0)
+            change_mirrors_menu
+            ;;
+        *)
+            echo -e "${RED}无效选择，请重试${NC}"
+            sleep 1
+            change_mirrors_abroad
             ;;
     esac
 }
@@ -544,6 +745,105 @@ update_script() {
         rm -f "$TMP_FILE"
         read -p "按任意键返回..." -n1
         show_main_menu
+    fi
+}
+
+# 更新和升级系统(合并功能)
+update_and_upgrade() {
+    clear
+    echo -e "${GREEN}=============================${NC}"
+    echo -e "${GREEN}      系统更新与升级      ${NC}"
+    echo -e "${GREEN}=============================${NC}"
+    echo ""
+    
+    # 检测包管理器类型
+    PACKAGE_MANAGER=$(detect_package_manager)
+    
+    echo -e "${YELLOW}检测到的包管理器: $PACKAGE_MANAGER${NC}"
+    echo ""
+    
+    # 确认更新和升级
+    read -p "确定要更新软件包列表并升级所有软件包吗? 这可能需要一些时间 (y/n): " confirm
+    if [[ "$confirm" != "y" ]]; then
+        echo -e "${YELLOW}操作已取消${NC}"
+        read -p "按任意键返回..." -n1
+        package_manager_menu
+        return
+    fi
+    
+    echo ""
+    
+    case $PACKAGE_MANAGER in
+        apt|apt-get)
+            echo -e "${YELLOW}步骤1: 正在更新 APT 软件包列表...${NC}"
+            echo -e "${GREEN}执行: sudo $PACKAGE_MANAGER update${NC}"
+            echo ""
+            sudo $PACKAGE_MANAGER update
+            
+            echo ""
+            echo -e "${YELLOW}步骤2: 正在升级所有 APT 软件包...${NC}"
+            echo -e "${GREEN}执行: sudo $PACKAGE_MANAGER upgrade -y${NC}"
+            echo ""
+            sudo $PACKAGE_MANAGER upgrade -y
+            ;;
+        dnf)
+            echo -e "${YELLOW}正在执行 DNF 更新和升级...${NC}"
+            echo -e "${GREEN}执行: sudo dnf upgrade -y${NC}"
+            echo ""
+            # DNF会自动更新软件包列表然后升级
+            sudo dnf upgrade -y
+            ;;
+        yum)
+            echo -e "${YELLOW}步骤1: 正在更新 YUM 软件包列表...${NC}"
+            echo -e "${GREEN}执行: sudo yum check-update${NC}"
+            echo ""
+            sudo yum check-update
+            
+            echo ""
+            echo -e "${YELLOW}步骤2: 正在升级所有 YUM 软件包...${NC}"
+            echo -e "${GREEN}执行: sudo yum update -y${NC}"
+            echo ""
+            sudo yum update -y
+            ;;
+        zypper)
+            echo -e "${YELLOW}步骤1: 正在更新 Zypper 软件包列表...${NC}"
+            echo -e "${GREEN}执行: sudo zypper refresh${NC}"
+            echo ""
+            sudo zypper refresh
+            
+            echo ""
+            echo -e "${YELLOW}步骤2: 正在升级所有 Zypper 软件包...${NC}"
+            echo -e "${GREEN}执行: sudo zypper update -y${NC}"
+            echo ""
+            sudo zypper update -y
+            ;;
+        pacman)
+            echo -e "${YELLOW}正在执行 Pacman 更新和升级...${NC}"
+            echo -e "${GREEN}执行: sudo pacman -Syu --noconfirm${NC}"
+            echo ""
+            # Pacman的-Syu参数会同时更新软件包列表和升级系统
+            sudo pacman -Syu --noconfirm
+            ;;
+        *)
+            echo -e "${RED}错误: 无法识别的包管理器，无法更新和升级系统。${NC}"
+            echo -e "${RED}此功能支持 apt、apt-get、dnf、yum、zypper 和 pacman。${NC}"
+            ;;
+    esac
+    
+    echo ""
+    echo -e "${GREEN}系统更新与升级操作完成${NC}"
+    
+    # 询问是否重启系统
+    echo ""
+    read -p "升级后通常建议重启系统，是否现在重启? (y/n): " reboot_choice
+    if [[ "$reboot_choice" == "y" ]]; then
+        echo -e "${YELLOW}系统将在5秒后重启...${NC}"
+        sleep 5
+        sudo reboot
+    else
+        echo -e "${YELLOW}您选择了不重启系统。如有必要，请稍后手动重启。${NC}"
+        read -p "按任意键返回..." -n1
+        package_manager_menu
     fi
 }
 
