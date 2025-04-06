@@ -3,7 +3,7 @@
 # Linux系统管理脚本
 
 # 脚本版本号
-SCRIPT_VERSION="1.3.1"
+SCRIPT_VERSION="1.4.0"
 SCRIPT_UPDATE_URL="https://raw.githubusercontent.com/iulove1314520/ASAADSDS/refs/heads/main/linux.sh"
 
 # 设置终端颜色
@@ -227,12 +227,13 @@ show_main_menu() {
     echo ""
     echo -e "${BLUE}1.${NC} 查看系统详细信息"
     echo -e "${BLUE}2.${NC} 软件源管理"
-    echo -e "${BLUE}3.${NC} 检查脚本更新"
+    echo -e "${BLUE}3.${NC} 防火墙管理"
+    echo -e "${BLUE}4.${NC} 检查脚本更新"
     echo -e "${BLUE}0.${NC} 退出"
     echo ""
     echo -e "${GREEN}=============================${NC}"
     echo ""
-    read -p "请选择操作 [0-3]: " choice
+    read -p "请选择操作 [0-4]: " choice
 
     case $choice in
         1)
@@ -242,6 +243,9 @@ show_main_menu() {
             package_manager_menu
             ;;
         3)
+            firewall_menu
+            ;;
+        4)
             update_script
             ;;
         0)
@@ -845,6 +849,318 @@ update_and_upgrade() {
         read -p "按任意键返回..." -n1
         package_manager_menu
     fi
+}
+
+# 检测防火墙类型
+detect_firewall() {
+    if command -v ufw &> /dev/null && ufw status &> /dev/null; then
+        echo "ufw"
+    elif command -v firewalld &> /dev/null && systemctl is-active --quiet firewalld; then
+        echo "firewalld"
+    elif command -v iptables &> /dev/null; then
+        echo "iptables"
+    else
+        echo "unknown"
+    fi
+}
+
+# 获取防火墙状态
+get_firewall_status() {
+    local firewall_type=$1
+    
+    case $firewall_type in
+        ufw)
+            if ufw status | grep -q "Status: active"; then
+                echo "active"
+            else
+                echo "inactive"
+            fi
+            ;;
+        firewalld)
+            if systemctl is-active --quiet firewalld; then
+                echo "active"
+            else
+                echo "inactive"
+            fi
+            ;;
+        iptables)
+            # 检查iptables是否有任何规则(简化判断)
+            if iptables -L -n | grep -q "Chain"; then
+                echo "active"
+            else
+                echo "inactive"
+            fi
+            ;;
+        *)
+            echo "unknown"
+            ;;
+    esac
+}
+
+# 防火墙管理菜单
+firewall_menu() {
+    clear
+    echo -e "${GREEN}=============================${NC}"
+    echo -e "${GREEN}       防火墙管理       ${NC}"
+    echo -e "${GREEN}=============================${NC}"
+    echo ""
+    
+    # 检测防火墙类型
+    FIREWALL_TYPE=$(detect_firewall)
+    FIREWALL_STATUS=$(get_firewall_status "$FIREWALL_TYPE")
+    
+    echo -e "${YELLOW}检测到的防火墙: $FIREWALL_TYPE${NC}"
+    
+    if [ "$FIREWALL_STATUS" == "active" ]; then
+        echo -e "当前状态: ${GREEN}已启用${NC}"
+    elif [ "$FIREWALL_STATUS" == "inactive" ]; then
+        echo -e "当前状态: ${RED}已禁用${NC}"
+    else
+        echo -e "当前状态: ${YELLOW}未知${NC}"
+    fi
+    
+    echo ""
+    echo -e "${BLUE}1.${NC} 关闭防火墙"
+    echo -e "${BLUE}2.${NC} 开启防火墙"
+    echo -e "${BLUE}3.${NC} 查看防火墙状态"
+    echo -e "${BLUE}0.${NC} 返回主菜单"
+    echo ""
+    echo -e "${GREEN}=============================${NC}"
+    echo ""
+    read -p "请选择操作 [0-3]: " choice
+
+    case $choice in
+        1)
+            disable_firewall
+            ;;
+        2)
+            enable_firewall
+            ;;
+        3)
+            check_firewall_status
+            ;;
+        0)
+            show_main_menu
+            ;;
+        *)
+            echo -e "${RED}无效选择，请重试${NC}"
+            sleep 1
+            firewall_menu
+            ;;
+    esac
+}
+
+# 关闭防火墙
+disable_firewall() {
+    clear
+    echo -e "${GREEN}=============================${NC}"
+    echo -e "${GREEN}       关闭防火墙       ${NC}"
+    echo -e "${GREEN}=============================${NC}"
+    echo ""
+    
+    # 检测防火墙类型
+    FIREWALL_TYPE=$(detect_firewall)
+    
+    if [ "$FIREWALL_TYPE" == "unknown" ]; then
+        echo -e "${RED}错误: 未检测到支持的防火墙程序。${NC}"
+        echo -e "${YELLOW}支持的防火墙包括: ufw, firewalld, iptables${NC}"
+        read -p "按任意键返回..." -n1
+        firewall_menu
+        return
+    fi
+    
+    # 确认关闭
+    echo -e "${RED}警告: 关闭防火墙可能会使系统面临安全风险。${NC}"
+    echo -e "${YELLOW}建议仅在必要的情况下临时关闭防火墙。${NC}"
+    echo ""
+    read -p "确定要关闭防火墙吗? (y/n): " confirm
+    
+    if [[ "$confirm" != "y" ]]; then
+        echo -e "${YELLOW}操作已取消${NC}"
+        read -p "按任意键返回..." -n1
+        firewall_menu
+        return
+    fi
+    
+    echo ""
+    
+    case $FIREWALL_TYPE in
+        ufw)
+            echo -e "${YELLOW}正在关闭 UFW 防火墙...${NC}"
+            echo -e "${GREEN}执行: sudo ufw disable${NC}"
+            echo ""
+            sudo ufw disable
+            ;;
+        firewalld)
+            echo -e "${YELLOW}正在关闭 FirewallD 防火墙...${NC}"
+            echo -e "${GREEN}执行: sudo systemctl stop firewalld${NC}"
+            echo ""
+            sudo systemctl stop firewalld
+            echo -e "${GREEN}执行: sudo systemctl disable firewalld${NC}"
+            sudo systemctl disable firewalld
+            ;;
+        iptables)
+            echo -e "${YELLOW}正在清空 IPTables 规则...${NC}"
+            echo -e "${GREEN}执行: sudo iptables -F${NC}"
+            echo ""
+            sudo iptables -F
+            echo -e "${GREEN}执行: sudo iptables -X${NC}"
+            sudo iptables -X
+            echo -e "${GREEN}执行: sudo iptables -t nat -F${NC}"
+            sudo iptables -t nat -F
+            echo -e "${GREEN}执行: sudo iptables -t nat -X${NC}"
+            sudo iptables -t nat -X
+            echo -e "${GREEN}执行: sudo iptables -t mangle -F${NC}"
+            sudo iptables -t mangle -F
+            echo -e "${GREEN}执行: sudo iptables -t mangle -X${NC}"
+            sudo iptables -t mangle -X
+            echo -e "${GREEN}执行: sudo iptables -P INPUT ACCEPT${NC}"
+            sudo iptables -P INPUT ACCEPT
+            echo -e "${GREEN}执行: sudo iptables -P FORWARD ACCEPT${NC}"
+            sudo iptables -P FORWARD ACCEPT
+            echo -e "${GREEN}执行: sudo iptables -P OUTPUT ACCEPT${NC}"
+            sudo iptables -P OUTPUT ACCEPT
+            
+            # 保存iptables设置（根据不同系统可能有所不同）
+            if command -v iptables-save &> /dev/null; then
+                echo -e "${GREEN}执行: sudo iptables-save > /etc/iptables/rules.v4${NC}"
+                sudo mkdir -p /etc/iptables
+                sudo iptables-save > /etc/iptables/rules.v4
+            fi
+            ;;
+    esac
+    
+    echo ""
+    echo -e "${GREEN}防火墙已关闭${NC}"
+    
+    read -p "按任意键返回..." -n1
+    firewall_menu
+}
+
+# 开启防火墙
+enable_firewall() {
+    clear
+    echo -e "${GREEN}=============================${NC}"
+    echo -e "${GREEN}       开启防火墙       ${NC}"
+    echo -e "${GREEN}=============================${NC}"
+    echo ""
+    
+    # 检测防火墙类型
+    FIREWALL_TYPE=$(detect_firewall)
+    
+    if [ "$FIREWALL_TYPE" == "unknown" ]; then
+        echo -e "${RED}错误: 未检测到支持的防火墙程序。${NC}"
+        echo -e "${YELLOW}支持的防火墙包括: ufw, firewalld, iptables${NC}"
+        read -p "按任意键返回..." -n1
+        firewall_menu
+        return
+    fi
+    
+    echo ""
+    
+    case $FIREWALL_TYPE in
+        ufw)
+            echo -e "${YELLOW}正在开启 UFW 防火墙...${NC}"
+            echo -e "${GREEN}执行: sudo ufw enable${NC}"
+            echo ""
+            sudo ufw enable
+            ;;
+        firewalld)
+            echo -e "${YELLOW}正在开启 FirewallD 防火墙...${NC}"
+            echo -e "${GREEN}执行: sudo systemctl enable firewalld${NC}"
+            echo ""
+            sudo systemctl enable firewalld
+            echo -e "${GREEN}执行: sudo systemctl start firewalld${NC}"
+            sudo systemctl start firewalld
+            ;;
+        iptables)
+            echo -e "${YELLOW}正在开启 IPTables 防火墙...${NC}"
+            
+            # 检查是否有保存的规则
+            if [ -f "/etc/iptables/rules.v4" ]; then
+                echo -e "${GREEN}执行: sudo iptables-restore < /etc/iptables/rules.v4${NC}"
+                echo ""
+                sudo iptables-restore < /etc/iptables/rules.v4
+            else
+                echo -e "${YELLOW}未找到已保存的 IPTables 规则，应用默认安全规则...${NC}"
+                echo -e "${GREEN}执行: sudo iptables -P INPUT DROP${NC}"
+                echo ""
+                sudo iptables -P INPUT DROP
+                echo -e "${GREEN}执行: sudo iptables -P FORWARD DROP${NC}"
+                sudo iptables -P FORWARD DROP
+                echo -e "${GREEN}执行: sudo iptables -A INPUT -i lo -j ACCEPT${NC}"
+                sudo iptables -A INPUT -i lo -j ACCEPT
+                echo -e "${GREEN}执行: sudo iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT${NC}"
+                sudo iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+                echo -e "${GREEN}执行: sudo iptables -A INPUT -p tcp --dport 22 -j ACCEPT${NC}"
+                sudo iptables -A INPUT -p tcp --dport 22 -j ACCEPT
+            fi
+            ;;
+    esac
+    
+    echo ""
+    echo -e "${GREEN}防火墙已开启${NC}"
+    
+    read -p "按任意键返回..." -n1
+    firewall_menu
+}
+
+# 查看防火墙状态
+check_firewall_status() {
+    clear
+    echo -e "${GREEN}=============================${NC}"
+    echo -e "${GREEN}      防火墙状态详情      ${NC}"
+    echo -e "${GREEN}=============================${NC}"
+    echo ""
+    
+    # 检测防火墙类型
+    FIREWALL_TYPE=$(detect_firewall)
+    
+    if [ "$FIREWALL_TYPE" == "unknown" ]; then
+        echo -e "${RED}错误: 未检测到支持的防火墙程序。${NC}"
+        echo -e "${YELLOW}支持的防火墙包括: ufw, firewalld, iptables${NC}"
+        read -p "按任意键返回..." -n1
+        firewall_menu
+        return
+    fi
+    
+    echo -e "${YELLOW}防火墙类型: $FIREWALL_TYPE${NC}"
+    echo ""
+    
+    case $FIREWALL_TYPE in
+        ufw)
+            echo -e "${YELLOW}UFW 防火墙状态:${NC}"
+            echo -e "${GREEN}执行: sudo ufw status verbose${NC}"
+            echo ""
+            sudo ufw status verbose
+            ;;
+        firewalld)
+            echo -e "${YELLOW}FirewallD 防火墙状态:${NC}"
+            echo -e "${GREEN}执行: sudo firewall-cmd --state${NC}"
+            echo ""
+            sudo firewall-cmd --state
+            echo ""
+            echo -e "${YELLOW}活动区域:${NC}"
+            echo -e "${GREEN}执行: sudo firewall-cmd --get-active-zones${NC}"
+            echo ""
+            sudo firewall-cmd --get-active-zones
+            echo ""
+            echo -e "${YELLOW}默认区域规则:${NC}"
+            echo -e "${GREEN}执行: sudo firewall-cmd --list-all${NC}"
+            echo ""
+            sudo firewall-cmd --list-all
+            ;;
+        iptables)
+            echo -e "${YELLOW}IPTables 防火墙规则:${NC}"
+            echo -e "${GREEN}执行: sudo iptables -L -v -n${NC}"
+            echo ""
+            sudo iptables -L -v -n
+            ;;
+    esac
+    
+    echo ""
+    read -p "按任意键返回..." -n1
+    firewall_menu
 }
 
 # 主程序入口点
