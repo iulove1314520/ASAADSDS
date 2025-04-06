@@ -3,7 +3,7 @@
 # Linux系统管理脚本
 
 # 脚本版本号
-SCRIPT_VERSION="1.6.1"
+SCRIPT_VERSION="1.6.2"
 SCRIPT_UPDATE_URL="https://raw.githubusercontent.com/iulove1314520/ASAADSDS/refs/heads/main/linux.sh"
 
 # 设置终端颜色
@@ -1096,10 +1096,10 @@ permanently_disable_firewall() {
     echo -e "${YELLOW}这将禁用系统启动时的防火墙服务，使您的系统持续暴露在安全风险中。${NC}"
     echo -e "${YELLOW}即使系统重启，防火墙也不会自动启用。${NC}"
     echo ""
-    echo -e "${RED}请输入 \"我确认关闭防火墙\" 以继续操作:${NC}"
-    read confirm_text
+    echo -e "${RED}此操作存在安全风险，确定要继续吗?${NC}"
+    read -p "请确认是否永久关闭防火墙? (y/n): " confirm_choice
     
-    if [ "$confirm_text" != "我确认关闭防火墙" ]; then
+    if [[ "$confirm_choice" != "y" ]]; then
         echo -e "${GREEN}操作已取消，防火墙保持开启状态${NC}"
         read -p "按任意键返回..." -n1
         firewall_menu
