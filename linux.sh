@@ -3,7 +3,7 @@
 # Linux系统管理脚本
 
 # 脚本版本号
-SCRIPT_VERSION="1.5.0"
+SCRIPT_VERSION="1.6.0"
 SCRIPT_UPDATE_URL="https://raw.githubusercontent.com/iulove1314520/ASAADSDS/refs/heads/main/linux.sh"
 
 # 设置终端颜色
