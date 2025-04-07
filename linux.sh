@@ -3,7 +3,7 @@
 # Linux系统管理脚本
 
 # 脚本版本号
-SCRIPT_VERSION="1.6.2"
+SCRIPT_VERSION="1.6.3"
 SCRIPT_UPDATE_URL="https://raw.githubusercontent.com/iulove1314520/ASAADSDS/refs/heads/main/linux.sh"
 
 # 设置终端颜色
@@ -974,9 +974,9 @@ firewall_menu() {
     
     echo -e "${YELLOW}检测到的防火墙: $FIREWALL_TYPE${NC}"
     
-    if [ "$FIREWALL_STATUS" == "active" ]; then
+    if [ "$FIREWALL_STATUS" = "active" ]; then
         echo -e "当前状态: ${GREEN}已启用${NC}"
-    elif [ "$FIREWALL_STATUS" == "inactive" ]; then
+    elif [ "$FIREWALL_STATUS" = "inactive" ]; then
         echo -e "当前状态: ${RED}已禁用${NC}"
     else
         echo -e "当前状态: ${YELLOW}未知${NC}"
@@ -1033,7 +1033,7 @@ disable_firewall() {
     FIREWALL_TYPE=$(detect_firewall)
     FIREWALL_STATUS=$(get_firewall_status "$FIREWALL_TYPE")
     
-    if [ "$FIREWALL_TYPE" == "unknown" ]; then
+    if [ "$FIREWALL_TYPE" = "unknown" ]; then
         echo -e "${RED}错误: 未检测到支持的防火墙程序。${NC}"
         echo -e "${YELLOW}支持的防火墙包括: ufw, firewalld, iptables${NC}"
         read -p "按任意键返回..." -n1
@@ -1041,7 +1041,7 @@ disable_firewall() {
         return
     fi
     
-    if [ "$FIREWALL_STATUS" == "inactive" ]; then
+    if [ "$FIREWALL_STATUS" = "inactive" ]; then
         echo -e "${YELLOW}防火墙 ($FIREWALL_TYPE) 当前已处于关闭状态。${NC}"
         read -p "按任意键返回..." -n1
         firewall_menu
@@ -1167,7 +1167,7 @@ permanently_disable_firewall() {
     
     # 检查操作是否成功
     FIREWALL_STATUS_AFTER=$(get_firewall_status "$FIREWALL_TYPE")
-    if [ "$FIREWALL_STATUS_AFTER" == "inactive" ]; then
+    if [ "$FIREWALL_STATUS_AFTER" = "inactive" ]; then
         echo ""
         echo -e "${GREEN}✅ 防火墙已成功永久关闭${NC}"
         echo -e "${YELLOW}注意: 系统将在重启后仍保持防火墙关闭状态${NC}"
@@ -1253,7 +1253,7 @@ temporarily_disable_firewall() {
     
     # 检查操作是否成功
     FIREWALL_STATUS_AFTER=$(get_firewall_status "$FIREWALL_TYPE")
-    if [ "$FIREWALL_STATUS_AFTER" == "inactive" ]; then
+    if [ "$FIREWALL_STATUS_AFTER" = "inactive" ]; then
         echo ""
         echo -e "${GREEN}✅ 防火墙已成功临时关闭${NC}"
         echo -e "${YELLOW}重要提示: 系统重启后防火墙将自动重新启用${NC}"
@@ -1278,7 +1278,7 @@ enable_firewall() {
     # 检测防火墙类型
     FIREWALL_TYPE=$(detect_firewall)
     
-    if [ "$FIREWALL_TYPE" == "unknown" ]; then
+    if [ "$FIREWALL_TYPE" = "unknown" ]; then
         echo -e "${RED}错误: 未检测到支持的防火墙程序。${NC}"
         echo -e "${YELLOW}支持的防火墙包括: ufw, firewalld, iptables${NC}"
         read -p "按任意键返回..." -n1
@@ -1346,7 +1346,7 @@ check_firewall_status() {
     # 检测防火墙类型
     FIREWALL_TYPE=$(detect_firewall)
     
-    if [ "$FIREWALL_TYPE" == "unknown" ]; then
+    if [ "$FIREWALL_TYPE" = "unknown" ]; then
         echo -e "${RED}错误: 未检测到支持的防火墙程序。${NC}"
         echo -e "${YELLOW}支持的防火墙包括: ufw, firewalld, iptables${NC}"
         read -p "按任意键返回..." -n1
@@ -1489,7 +1489,7 @@ open_firewall_port() {
     
     case $FIREWALL_TYPE in
         ufw)
-            if [ "$proto" == "both" ]; then
+            if [ "$proto" = "both" ]; then
                 echo -e "${GREEN}执行: sudo ufw allow $port/tcp${NC}"
                 sudo ufw allow $port/tcp
                 echo -e "${GREEN}执行: sudo ufw allow $port/udp${NC}"
@@ -1500,7 +1500,7 @@ open_firewall_port() {
             fi
             ;;
         firewalld)
-            if [ "$proto" == "both" ]; then
+            if [ "$proto" = "both" ]; then
                 echo -e "${GREEN}执行: sudo firewall-cmd --permanent --add-port=$port/tcp${NC}"
                 sudo firewall-cmd --permanent --add-port=$port/tcp
                 echo -e "${GREEN}执行: sudo firewall-cmd --permanent --add-port=$port/udp${NC}"
@@ -1515,12 +1515,12 @@ open_firewall_port() {
             fi
             ;;
         iptables)
-            if [ "$proto" == "both" ] || [ "$proto" == "tcp" ]; then
+            if [ "$proto" = "both" ] || [ "$proto" = "tcp" ]; then
                 echo -e "${GREEN}执行: sudo iptables -A INPUT -p tcp --dport $port -j ACCEPT${NC}"
                 sudo iptables -A INPUT -p tcp --dport $port -j ACCEPT
             fi
             
-            if [ "$proto" == "both" ] || [ "$proto" == "udp" ]; then
+            if [ "$proto" = "both" ] || [ "$proto" = "udp" ]; then
                 echo -e "${GREEN}执行: sudo iptables -A INPUT -p udp --dport $port -j ACCEPT${NC}"
                 sudo iptables -A INPUT -p udp --dport $port -j ACCEPT
             fi
@@ -1584,7 +1584,7 @@ close_firewall_port() {
     
     case $FIREWALL_TYPE in
         ufw)
-            if [ "$proto" == "both" ]; then
+            if [ "$proto" = "both" ]; then
                 echo -e "${GREEN}执行: sudo ufw deny $port/tcp${NC}"
                 sudo ufw deny $port/tcp
                 echo -e "${GREEN}执行: sudo ufw deny $port/udp${NC}"
@@ -1595,7 +1595,7 @@ close_firewall_port() {
             fi
             ;;
         firewalld)
-            if [ "$proto" == "both" ]; then
+            if [ "$proto" = "both" ]; then
                 echo -e "${GREEN}执行: sudo firewall-cmd --permanent --remove-port=$port/tcp${NC}"
                 sudo firewall-cmd --permanent --remove-port=$port/tcp
                 echo -e "${GREEN}执行: sudo firewall-cmd --permanent --remove-port=$port/udp${NC}"
@@ -1610,12 +1610,12 @@ close_firewall_port() {
             fi
             ;;
         iptables)
-            if [ "$proto" == "both" ] || [ "$proto" == "tcp" ]; then
+            if [ "$proto" = "both" ] || [ "$proto" = "tcp" ]; then
                 echo -e "${GREEN}执行: sudo iptables -D INPUT -p tcp --dport $port -j ACCEPT${NC}"
                 sudo iptables -D INPUT -p tcp --dport $port -j ACCEPT
             fi
             
-            if [ "$proto" == "both" ] || [ "$proto" == "udp" ]; then
+            if [ "$proto" = "both" ] || [ "$proto" = "udp" ]; then
                 echo -e "${GREEN}执行: sudo iptables -D INPUT -p udp --dport $port -j ACCEPT${NC}"
                 sudo iptables -D INPUT -p udp --dport $port -j ACCEPT
             fi
@@ -1770,7 +1770,13 @@ timed_firewall_disable() {
     # 保存当前时间作为开始时间
     start_time=$(date +%s)
     restore_time=$((start_time + minutes*60))
-    restore_time_readable=$(date -d "@$restore_time" '+%H:%M:%S')
+    
+    # 使用更兼容的方式格式化时间（不依赖于GNU date的-d选项）
+    # 计算小时、分钟和秒
+    restore_hours=$((restore_time / 3600 % 24))
+    restore_minutes=$((restore_time / 60 % 60))
+    restore_seconds=$((restore_time % 60))
+    restore_time_readable=$(printf "%02d:%02d:%02d" $restore_hours $restore_minutes $restore_seconds)
     
     # 临时关闭防火墙
     case $FIREWALL_TYPE in
@@ -1801,97 +1807,127 @@ timed_firewall_disable() {
     echo -e "${YELLOW}将在 $restore_time_readable (${minutes}分钟后) 自动恢复${NC}"
     echo ""
     
-    # 创建后台任务，在指定时间后恢复防火墙
-    (
-        # 等待指定的分钟数
-        sleep $((minutes*60))
-        
-        # 根据防火墙类型执行相应的启用命令
-        case $FIREWALL_TYPE in
-            ufw)
-                sudo ufw enable
-                ;;
-            firewalld)
-                sudo systemctl start firewalld
-                ;;
-            iptables)
-                # 如果有保存的规则，则恢复
-                if [ -f "/etc/iptables/rules.v4" ]; then
-                    sudo iptables-restore < /etc/iptables/rules.v4
-                else
-                    # 否则应用基本安全规则
-                    sudo iptables -P INPUT DROP
-                    sudo iptables -P FORWARD DROP
-                    sudo iptables -A INPUT -i lo -j ACCEPT
-                    sudo iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-                    sudo iptables -A INPUT -p tcp --dport 22 -j ACCEPT
-                fi
-                ;;
-        esac
-        
-        # 发送桌面通知（如果系统支持）
-        if command -v notify-send &> /dev/null; then
-            notify-send "防火墙已自动恢复" "系统防火墙已于$(date '+%H:%M:%S')自动重新启用。"
+    # 创建临时脚本文件
+    TMP_RESTORE_SCRIPT=$(mktemp)
+    cat > "$TMP_RESTORE_SCRIPT" << EOF
+#!/bin/bash
+# 等待指定的分钟数
+sleep $((minutes*60))
+
+# 根据防火墙类型执行相应的启用命令
+case $FIREWALL_TYPE in
+    ufw)
+        sudo ufw enable
+        ;;
+    firewalld)
+        sudo systemctl start firewalld
+        ;;
+    iptables)
+        # 如果有保存的规则，则恢复
+        if [ -f "/etc/iptables/rules.v4" ]; then
+            sudo iptables-restore < /etc/iptables/rules.v4
+        else
+            # 否则应用基本安全规则
+            sudo iptables -P INPUT DROP
+            sudo iptables -P FORWARD DROP
+            sudo iptables -A INPUT -i lo -j ACCEPT
+            sudo iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+            sudo iptables -A INPUT -p tcp --dport 22 -j ACCEPT
         fi
-    ) &
+        ;;
+esac
+
+# 发送桌面通知（如果系统支持）
+if command -v notify-send &> /dev/null; then
+    notify-send "防火墙已自动恢复" "系统防火墙已自动重新启用。"
+fi
+
+# 删除自身
+rm -f "$TMP_RESTORE_SCRIPT"
+EOF
+
+    # 赋予执行权限
+    chmod +x "$TMP_RESTORE_SCRIPT"
+    
+    # 在后台执行恢复脚本
+    nohup bash "$TMP_RESTORE_SCRIPT" > /dev/null 2>&1 &
+    RESTORE_PID=$!
+    
+    # 保存PID到临时文件，以便后续可能需要终止
+    echo $RESTORE_PID > /tmp/firewall_restore_pid
     
     # 显示倒计时
     remaining=$((minutes*60))
     echo -e "${YELLOW}防火墙将自动恢复，倒计时:${NC}"
+    echo -e "${YELLOW}(按任意键中断倒计时)${NC}"
     echo ""
     
-    while [ $remaining -gt 0 ]; do
+    trap_count=0
+    while [ $remaining -gt 0 ] && [ $trap_count -lt 3 ]; do
         mins=$((remaining / 60))
         secs=$((remaining % 60))
         
         # 清除当前行
         echo -ne "\r${GREEN}剩余时间: ${mins}分钟 ${secs}秒      ${NC}"
-        sleep 1
-        remaining=$((remaining - 1))
         
-        # 检查是否按下了任意键
-        read -t 0.1 -n 1 input
-        if [ $? -eq 0 ]; then
-            echo ""
-            echo -e "${YELLOW}检测到按键，是否立即恢复防火墙? (y/n): ${NC}"
-            read restore_now
-            if [[ "$restore_now" == "y" ]]; then
-                # 杀死之前的后台任务
-                pkill -f "sleep $((minutes*60))"
-                
-                echo -e "${GREEN}立即恢复防火墙...${NC}"
-                
-                # 根据防火墙类型执行相应的启用命令
-                case $FIREWALL_TYPE in
-                    ufw)
-                        sudo ufw enable
-                        ;;
-                    firewalld)
-                        sudo systemctl start firewalld
-                        ;;
-                    iptables)
-                        if [ -f "/etc/iptables/rules.v4" ]; then
-                            sudo iptables-restore < /etc/iptables/rules.v4
-                        else
-                            sudo iptables -P INPUT DROP
-                            sudo iptables -P FORWARD DROP
-                            sudo iptables -A INPUT -i lo -j ACCEPT
-                            sudo iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-                            sudo iptables -A INPUT -p tcp --dport 22 -j ACCEPT
-                        fi
-                        ;;
-                esac
-                
-                echo -e "${GREEN}✅ 防火墙已手动恢复${NC}"
-                break
-            else
-                echo -e "${YELLOW}继续倒计时...${NC}"
+        # 读取输入，超时设为1秒
+        if read -t 1 -n 1 input; then
+            trap_count=$((trap_count + 1))
+            if [ $trap_count -eq 1 ]; then
+                echo ""
+                echo -e "${YELLOW}检测到按键，是否立即恢复防火墙? (y/n): ${NC}"
+                read restore_now
+                if [[ "$restore_now" = "y" ]]; then
+                    # 杀死恢复脚本进程
+                    if [ -f "/tmp/firewall_restore_pid" ]; then
+                        RESTORE_PID=$(cat /tmp/firewall_restore_pid)
+                        kill $RESTORE_PID 2>/dev/null
+                        rm -f "/tmp/firewall_restore_pid"
+                    fi
+                    
+                    # 删除临时脚本
+                    if [ -f "$TMP_RESTORE_SCRIPT" ]; then
+                        rm -f "$TMP_RESTORE_SCRIPT"
+                    fi
+                    
+                    echo -e "${GREEN}立即恢复防火墙...${NC}"
+                    
+                    # 根据防火墙类型执行相应的启用命令
+                    case $FIREWALL_TYPE in
+                        ufw)
+                            sudo ufw enable
+                            ;;
+                        firewalld)
+                            sudo systemctl start firewalld
+                            ;;
+                        iptables)
+                            if [ -f "/etc/iptables/rules.v4" ]; then
+                                sudo iptables-restore < /etc/iptables/rules.v4
+                            else
+                                sudo iptables -P INPUT DROP
+                                sudo iptables -P FORWARD DROP
+                                sudo iptables -A INPUT -i lo -j ACCEPT
+                                sudo iptables -A INPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
+                                sudo iptables -A INPUT -p tcp --dport 22 -j ACCEPT
+                            fi
+                            ;;
+                    esac
+                    
+                    echo -e "${GREEN}✅ 防火墙已手动恢复${NC}"
+                    break
+                else
+                    echo -e "${YELLOW}继续倒计时...${NC}"
+                    trap_count=0
+                fi
             fi
         fi
+        
+        remaining=$((remaining - 1))
     done
     
     echo ""
     echo -e "${GREEN}操作完成${NC}"
+    echo -e "${YELLOW}防火墙将在后台自动恢复，您可以安全地退出此菜单${NC}"
     read -p "按任意键返回..." -n1
     firewall_menu
 }
